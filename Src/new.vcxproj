@@ -154,13 +154,16 @@
   <ItemGroup>
     <ClCompile Include="controls.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="Includes\graphics_engine.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Includes\config.h" />
     <ClInclude Include="controls.h" />
+    <ClInclude Include="Includes\graphics_engine.h" />
     <ClInclude Include="particle.h" />
-    <ClInclude Include="stb_image.h" />
-    <ClInclude Include="tiny_obj_loader.h" />
+    <ClInclude Include="Includes\stb_image.h" />
+    <ClInclude Include="Includes\tiny_obj_loader.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="Shaders\sample.frag">

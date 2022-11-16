@@ -24,18 +24,27 @@
     <ClCompile Include="controls.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Includes\graphics_engine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="tiny_obj_loader.h">
+    <ClInclude Include="Includes\tiny_obj_loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stb_image.h">
+    <ClInclude Include="Includes\stb_image.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="controls.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="particle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\graphics_engine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

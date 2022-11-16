@@ -2,7 +2,7 @@
 #include <GLFW/glfw3.h>
 
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
+#include "Includes/tiny_obj_loader.h"
 
 //GLM Headers
 #include <glm/glm.hpp>
@@ -14,11 +14,12 @@
 
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "Includes/stb_image.h"
+
+#include "Includes/config.h"         //Configurations
 #include "particle.h"       //Particle settings and constants
 #include "controls.h"       //Controls for keyboard and mouse
-
-#define TIMESTEP 1.0/60.0
+#include "Includes/graphics_engine.h"
 
 
 
@@ -595,7 +596,7 @@ public:
     }
 };
 
-
+/*
 class Light {
 public:
     glm::vec3 lightPos = glm::vec3(0.f, 0.f, 0.f);    
@@ -606,8 +607,8 @@ public:
 
     float specStr = 0.1f;  //Shine brightness
     float specPhong = 5.f; //(Smallest is 10.f) Shine size. Lower = Shinier & Bigger
-};
-
+};*/
+/*
 class Shader {
 public:
     GLuint shaderProgram;
@@ -719,8 +720,8 @@ public:
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8); //Divide by number of floats inside array XYZ,normXYZ,UV
     }
-};
-
+};*/
+/*
 class Camera {
 public:
     glm::mat4 projection;   //The projection matrix
@@ -816,59 +817,7 @@ public:
 
         view = cameraOrientationMatrix * cameraPosMatrix;   //Update the view matrix
     }
-};
-
-class Player {
-public:
-    float position[3] = { 0.f, 0.f, -30.f };
-    float startingRotation = 0.f;
-    float orientation[3] = { 0.f };
-    float spaceshipSpeed = 10.f;
-    float turningSpeed = 90.f;
-    float maxPitch = 90.f;
-    float autoLevelPitch = 5.f;     //Speed of returning ship back to normal pitch. Higher values = Slower restabilization
-
-
-    //Moves forward according to direction ship is facing
-    // @param input = Set to 1 for forward calculations
-    void moveToDirection(int forward, float deltaTime) {
-        position[0] += forward * deltaTime * spaceshipSpeed * -cos(glm::radians(orientation[1] - startingRotation / 2));
-        position[1] += forward * deltaTime * spaceshipSpeed * -sin(glm::radians(orientation[0]));
-        position[2] += forward * deltaTime * spaceshipSpeed * cos(glm::radians(orientation[1] - startingRotation)) * cos(glm::radians(orientation[0]));
-    }
-
-    //Orients and moves the player
-    void movePlayer(int movement[], float deltaTime) {
-        //Yaw
-        if (movement[1] < 0) {
-            orientation[1] += movement[1] * deltaTime * turningSpeed;   //turn
-            moveToDirection(-movement[1], deltaTime);                   //move forward while turning
-        }
-        else if (movement[1] > 0) {
-            orientation[1] += movement[1] * deltaTime * turningSpeed;
-            moveToDirection(movement[1], deltaTime);
-        }
-        
-        //Pitch
-        if (movement[2] > 0) {
-            if (orientation[0] <= maxPitch)     //Only increase if pitch hasn't reached max
-                orientation[0] += deltaTime * turningSpeed * ((maxPitch - orientation[0]) / (maxPitch / 2));  //Avoids the snappy halt by slowly decelerating till turning speed approaches 0
-            moveToDirection(1, deltaTime);      //Move forward while turning
-        }
-        else if (movement[2] < 0) {
-            if (orientation[0] >= -maxPitch)
-                orientation[0] += deltaTime * -turningSpeed * ((-maxPitch - orientation[0]) / (-maxPitch / 2));
-            moveToDirection(1, deltaTime);
-        }
-        else {
-            orientation[0] -= deltaTime * (orientation[0] / autoLevelPitch);      //Auto level the pitch back to normal if not being pressed
-        }
-        //Forward/back
-        if (movement[0] != 0) {
-            moveToDirection(movement[0], deltaTime);    //Move along current orientation
-        }
-    }
-};
+};*/
 
 
 
@@ -887,7 +836,6 @@ int main(void)
     Model playerShip;
     playerShip.loadObj("3D/ship2.obj");
     */
-
 
     //Vertices for the cube
 
@@ -1077,8 +1025,7 @@ int main(void)
 
 
     //Create a pointlight and spotlight light instance
-    Light pointLight;
-    Light shipLight;
+    Light pointLight, shipLight;
 
     //Active lighting variables
     glm::vec3 lightPos;
