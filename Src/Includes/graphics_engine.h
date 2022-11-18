@@ -4,16 +4,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-//#define TINYOBJLOADER_IMPLEMENTATION
-//#include "tiny_obj_loader.h"
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-
-//#define STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
 
 #include <string>
 #include <iostream>
@@ -21,47 +15,11 @@
 
 
 /* CLASSES:
-* Model
 * Light
 * Shader
 * Camera
 * Player
 */
-/*
-class Model {
-public:
-    float position[3];
-    float scale;
-    float rotation[3];
-    float revolution[3];
-
-    std::vector<GLfloat> fullVertexData;    //Full vertex data array
-    GLuint VAO, VBO;                        //VAO & VBO
-    glm::mat4 transform;                    //Transform matrix
-
-    GLuint texBase, texNorm, texOverlay;    //3 slots for texture and normal map
-
-    Model();
-
-    //Loads 3D object's properties
-    // @param fileAddress - String of the 3D obj's location
-    void loadObj(std::string fileAddress);
-
-
-    //Loads and generates opengl textures
-    // @param fileAddress (Only use PNG for consistency) - String of the texture file location
-    // @param textureIdentifier (0-Base tex, 1-Normal map, 2-Additional) - Identifies which texture is being loaded
-    void loadTexture(std::string fileAddress, int textureIdentifier);
-
-    //Generates the VAO and VBO
-    void generateVAO();
-
-    //Calculate transform matrix for revolving around a point
-    // @param radius (>0) - Distance of how far the object should be from its origin when revolved
-    void revolve(float radius);
-    void rotate();
-    void translate(glm::vec3 inputPos);
-};*/
 
 class Light {
 public:
@@ -109,7 +67,8 @@ public:
     glm::mat4 view;         //The view matrix
     glm::vec3 centerPos;    //Eye of the camera
 
-    float screenW, screenH, perspMode;
+    float screenW, screenH;
+    int perspMode;
     glm::vec3 camPosAdjustment;
 
     Camera(int isPerspective, float screenWidth, float screenHeight, float maxCamRange);
