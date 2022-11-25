@@ -27,6 +27,9 @@
     <ClCompile Include="Includes\graphics_engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Includes\physics_engine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Includes\tiny_obj_loader.h">
@@ -38,13 +41,16 @@
     <ClInclude Include="controls.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="particle.h">
+    <ClInclude Include="Includes\particle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Includes\config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Includes\graphics_engine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\physics_engine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

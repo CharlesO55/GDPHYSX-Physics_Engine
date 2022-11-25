@@ -35,9 +35,9 @@
 static float dampSettings[] = { 0.99f , 0.99f, 0.9f, 0.99f };   //Replaced by DragForce
 static float massSettings[] = { 1.f , 1.f, 1.f, 0.1f };     //Mass will affect spring force
 
-static float gravitySettings[] = { INACTIVE , ACTIVE, INACTIVE, INACTIVE };   //Activate gravity for springs
-static float constantForceSettings[] = { ACTIVE , ACTIVE, ACTIVE, ACTIVE };   //Allow user to apply force per click
-static float dragForceSettings[] = { ACTIVE , ACTIVE, ACTIVE, ACTIVE };       //Activate drag for all springs   
+static int gravitySettings[] = { INACTIVE , ACTIVE, INACTIVE, INACTIVE };   //Activate gravity for springs
+static int constantForceSettings[] = { ACTIVE , ACTIVE, ACTIVE, ACTIVE };   //Allow user to apply force per click
+static int dragForceSettings[] = { ACTIVE , ACTIVE, ACTIVE, ACTIVE };       //Activate drag for all springs   
 
 static glm::vec3 ORIGIN = glm::vec3(0.f, 0.f, 0.f);
 static glm::vec3 velocitySettings[] = {

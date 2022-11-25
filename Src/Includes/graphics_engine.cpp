@@ -15,6 +15,7 @@ Light::Light(){     //Constructor
 
 
 
+
 //Create shader program
 void Shader::generateShaderProgram(const char* vertSrc, const char* fragSrc) {
     GLuint vertShader = glCreateShader(GL_VERTEX_SHADER);   //Create shader
@@ -84,7 +85,7 @@ void Shader::passTextures(GLuint texture, GLuint norm_tex, GLuint tex2, int blen
 
 //Pass lighting properties to shader
 // @param isPointLight - Switches shader lighting mode (-1 Spotlight, 0 Unlit, 1 Point light)
-void Shader::passLight(glm::vec3 lightPos, glm::vec3 lightColor, glm::vec3 ambientColor, float ambientStr, float specStr, float specPhong, glm::vec3 cameraPos, int isPointLight, glm::vec3 playerFacing) {
+/*void Shader::passLight(glm::vec3 lightPos, glm::vec3 lightColor, glm::vec3 ambientColor, float ambientStr, float specStr, float specPhong, glm::vec3 cameraPos, int isPointLight, glm::vec3 playerFacing) {
     //Diffuse
     GLuint lightPosAddress = glGetUniformLocation(shaderProgram, "lightPos");
     glUniform3fv(lightPosAddress, 1, glm::value_ptr(lightPos));
@@ -114,6 +115,38 @@ void Shader::passLight(glm::vec3 lightPos, glm::vec3 lightColor, glm::vec3 ambie
 
     GLuint playerFacingAddress = glGetUniformLocation(shaderProgram, "playerFacing");
     glUniform3fv(playerFacingAddress, 1, glm::value_ptr(playerFacing));
+}*/
+
+void Shader::passLight(Light activeLight, glm::vec3 cameraPos, int isPointLight, glm::vec3 playerFacing) {
+    //Diffuse
+    GLuint lightPosAddress = glGetUniformLocation(shaderProgram, "lightPos");
+    glUniform3fv(lightPosAddress, 1, glm::value_ptr(activeLight.lightPos));
+
+    GLuint lightColorAddress = glGetUniformLocation(shaderProgram, "lightColor");
+    glUniform3fv(lightColorAddress, 1, glm::value_ptr(activeLight.lightColor));
+
+    //Ambience
+    GLuint ambientColorAddress = glGetUniformLocation(shaderProgram, "ambientColor");
+    glUniform3fv(ambientColorAddress, 1, glm::value_ptr(activeLight.ambientColor));
+
+    GLuint ambientStrAddress = glGetUniformLocation(shaderProgram, "ambientStr");
+    glUniform1f(ambientStrAddress, activeLight.ambientStr);
+
+    //Specular
+    GLuint specStrAddress = glGetUniformLocation(shaderProgram, "specStr");
+    glUniform1f(specStrAddress, activeLight.specStr);
+
+    GLuint specPhongAddress = glGetUniformLocation(shaderProgram, "specPhong");
+    glUniform1f(specPhongAddress, activeLight.specPhong);
+
+    GLuint lighingModeAddress = glGetUniformLocation(shaderProgram, "lightingMode");
+    glUniform1i(lighingModeAddress, isPointLight);      //Pass the lighting mode
+
+    GLuint cameraPosAddress = glGetUniformLocation(shaderProgram, "cameraPos");
+    glUniform3fv(cameraPosAddress, 1, glm::value_ptr(cameraPos));
+
+    GLuint playerFacingAddress = glGetUniformLocation(shaderProgram, "playerFacing");
+    glUniform3fv(playerFacingAddress, 1, glm::value_ptr(playerFacing));
 }
 
 //Render the object
@@ -122,18 +155,38 @@ void Shader::draw(GLuint VAO, std::vector<GLfloat> fullVertexData) {
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8); //Divide by number of floats inside array XYZ,normXYZ,UV
 }
-/*
-void Shader::draw(Model objectModel) {
-    glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8); //Divide by number of floats inside array XYZ,normXYZ,UV
-}*/
+
+//Call all functions related to drawing
+void Shader::drawSequence(ShaderPackage packagedShader) {
+    passMVP(packagedShader.modelTransform, packagedShader.activeCam.projection, packagedShader.activeCam.view);
+    passTextures(packagedShader.texBase, packagedShader.texNorm, packagedShader.texOverlay, packagedShader.blendingMode);    //0-Base tex and normal only , 1-Base tex with overlay , 2-Base tex with multiply
+    passLight(packagedShader.activeLight, packagedShader.activeCam.cameraPos, packagedShader.lightingMode, packagedShader.playerFacing);
+    draw(packagedShader.VAO, packagedShader.fullVertexData);
+}
+
+ShaderPackage::ShaderPackage() {
+    lightingMode = UNLIT_LIGHTMODE;
+    blendingMode = 1;
+}
+    void ShaderPackage::storeModelProperties(glm::mat4 modelTransform, GLuint texBase, GLuint texNorm, GLuint texOverlay, GLuint VAO, std::vector<GLfloat> fullVertexData) {
+        this->modelTransform = modelTransform;
+        this->texBase = texBase;
+        this->texNorm = texNorm; 
+        this->texOverlay = texOverlay;
+        this->VAO = VAO;
+        this->fullVertexData = fullVertexData;
+    }
+
+    void ShaderPackage::storeClasses(Camera activeCam, Light activeLight, glm::vec3 playerFacing) {
+        this->activeCam = activeCam;
+        this->activeLight = activeLight;
+        this->playerFacing = playerFacing;
+    }
 
 
 
-
-
-
+Camera::Camera() {
+}
 Camera::Camera(int isPerspective, float screenWidth, float screenHeight, float maxCamRange) {
         screenW = screenWidth;
         screenH = screenHeight;

@@ -1,6 +1,6 @@
 #include <iostream>
-#include <GLFW/glfw3.h>
-#include "particle.h"
+#include <GLFW/glfw3.h>     //Keyboard and mouse library
+#include "Includes/particle.h"
 
 int projectileType = BULLET;
 int isFired = 0;

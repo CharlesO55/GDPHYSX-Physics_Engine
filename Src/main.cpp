@@ -4,7 +4,8 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Includes/tiny_obj_loader.h"
 
-//GLM Headers
+//OpenGL Mathematics Headers
+#define GLM_FORCE_CTOR_INIT     //[IMPORTANT] Initialize mats and vecs as 0 or NULL
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -17,261 +18,20 @@
 #include "Includes/stb_image.h"
 
 #include "Includes/config.h"         //Configurations
-#include "particle.h"       //Particle settings and constants
+#include "Includes/particle.h"       //Particle settings and constants
 #include "controls.h"       //Controls for keyboard and mouse
 #include "Includes/graphics_engine.h"   //Light, Shader, Camera, Player
+#include "Includes/physics_engine.h"
 
-
-
-//PARTICLE_HW(1/3)
-//Class for all physic related properties.
-class Particle {
-public:
-    //Defaults. Can be overwritten by initParticle()
-    float size = 1.f;     //To scale by
-    float damp = 0.9f;    //Damping value
-    float mass = 1.f;
-    int partType = INACTIVE;                //Type of the particle
-    int isGravityActive = ACTIVE;           //Gravity toggle
-    int isConstantForceActive = ACTIVE;     //Constant force toggle
-    int isDragForceActive = ACTIVE;         //Drag force toggle
-    float initTime, despawnTime; //despawnTime is its lifespan
-    glm::vec3 partPos;  //Position
-    glm::vec3 partVel;  //Velocity
-    glm::vec3 partAcc;  //Acceleration
-    glm::vec3 forceAccum; //Active forces
-
-    //Initialize particle variables
-    void initParticle(int projType, float scale, float currTime, glm::vec3 startPos) {	//Initialize values for damp, m, v, a, etc.
-        size = scale;
-        despawnTime = 100;
-        initTime = currTime;    //Time initialized
-        partType = projType;
-
-        //damp = dampSettings[projType - 1];  //Settings from particle.h (Replaced by DragForce)
-        mass = massSettings[projType - 1];
-        partPos = startPos;
-        partVel = velocitySettings[projType - 1];
-        //partAcc = accelerationSettings[projType - 1];
-          
-        isGravityActive = gravitySettings[projType - 1];
-        isConstantForceActive = constantForceSettings[projType - 1];
-        isDragForceActive = dragForceSettings[projType - 1];
-        std::cout << "INITIALIZED\n";
-    }
-
-    //Despawn the particle
-    void despawnParticle(int* particleSlots) {
-        if (partType) {
-            partType = INACTIVE;    //Set type to inactive and will not be rendered in main()
-            *particleSlots += 1;    //Restore amount of available slots for particles by 1
-            std::cout << "DESPAWNPART\n";
-        }
-    }
-    
-    //Update position
-    void updateMotion(float deltaTime, float currTime, int* particleSlots) {    //Update particle's motion
-        if (!partType || !mass) {
-            return;     //End when particle isn't active or is unmovable
-        }
-
-        //Assume particle is still active if still not exited
-        if (currTime - initTime < despawnTime) {  //Check if should still be active before updating
-            partAcc = (1 / mass) * forceAccum;      //Calculate acc from total forces
-            partVel += partAcc * deltaTime;         //Add to velocity
-            //partVel *= damp;      //Replaced by DragForce
-            partPos += partVel * deltaTime * size;  //Update position
-            //std::cout << "UPDARE\n";
-        }
-        else {  //Despawn when lifespan is exceeded
-            despawnParticle(particleSlots);
-        }
-        clearForceAccum();  //Clear total forces for next loop
-    }
-
-    //Reset forces accumulated
-    void clearForceAccum() {
-        forceAccum = { 0.f, 0.f, 0.f };
-    }
-};
-
-//Parent class for calculating different forces 
-class ParticleForceGenerator {
-public:
-    glm::vec3 force;
-    virtual void updateForce(Particle* part) {
-        std::cout << "\nNO FORCE DETECTED" << std::endl;    //If not overwritten print msg
-    }
-};
-
-//Calculates gravity force
-class GravityForce : public ParticleForceGenerator {
-public:
-    void updateForce(Particle* part) {
-        if (part->isGravityActive)
-            part->forceAccum += glm::vec3(0.f, GRAVITY, 0.f) * part->mass;  //f = mg
-    }
-};
-
-//Push/pull forces
-class ConstantForce : public ParticleForceGenerator {
-public:
-    void updateForce(Particle* part) {
-        if (part->isConstantForceActive)
-            part->forceAccum += accelerationSettings[(part->partType) - 1] * part->mass;    //Add to particle's force accumulated
-    }
-};
-
-//Drag force counteracting current velocity
-class DragForce : public ParticleForceGenerator {
-public:
-    float k1, k2;   //Drag constants
-    DragForce(float constant1, float constant2) {
-        k1 = constant1;
-        k2 = constant2;
-    }
-    void updateForce(Particle* part) {
-        if (part->isDragForceActive) {
-            float drag = glm::length(part->partVel);    //Magnitude of current particle velocity
-            drag = (k1 * drag) + (k2 * drag * drag);    //Drag using constants
-
-            glm::vec3 norm = glm::normalize(part->partVel); //Normalized velocity for a direction
-
-            part->forceAccum += norm * -drag;               //Add drag * opposite dir into total force
-        }
-    }
-};
-
-//Basic spring - 2 Ends should move
-class BasicSpring : public ParticleForceGenerator {
-public:
-    float k = SPRING_CONSTANT;
-    float restLength = SPRING_REST_LENGTH;
-    //Particle *oppositeEnd;        //Originally meant to directly link 2 particles but render creates artifacts cuz it's a big baby
-    glm::vec3 oppositeEnd;          //Just note the opposite end as a vec3 instead of indirectly accessing
-
-    void linkOtherEnd(glm::vec3 otherEnd) {
-        oppositeEnd = otherEnd;
-    }
-
-    void updateForce(Particle* part) {
-        glm::vec3 v = part->partPos - oppositeEnd;      //Vec from end to end
-        float magnitude = glm::length(v) - restLength;      //Magnitude of force. Depends on distance from rest length
-        glm::vec3 force = glm::normalize(v) * magnitude * -k;   //Dir * distance * -k
-
-        part->forceAccum += force;
-        //oppositeEnd->forceAccum -= force;         //Equal opposite force experienced on other end
-        //[NOTE]: It works. But the render creates a fiasco. Just do 2 runs bcuz render engine is big baby
-    }
-};
-
-//Anchored - One particle moves only
-class AnchoredSpring : public ParticleForceGenerator {
-public: 
-    glm::vec3 springEnd;
-    float k = SPRING_CONSTANT;
-    float restLength = SPRING_REST_LENGTH;
-    
-    AnchoredSpring(glm::vec3 anchorEnd) {
-        springEnd = anchorEnd;  //Stationary anchor
-    }
-
-    void updateForce(Particle* part) {
-        glm::vec3 v = part->partPos - springEnd;  //Vec pos relative to other end
-        float magnitude = glm::length(v) - restLength;  //Distance from rest length
-
-        part->forceAccum += glm::normalize(v) * magnitude * -k; //Direction vector * magnitude * -k
-    }
-};
-
-//Bungee - Pull only when stretched past restLength
-class ElasticBungee : public ParticleForceGenerator {
-public:
-    float k = SPRING_CONSTANT;
-    float restLength = SPRING_REST_LENGTH;
-    //Particle* oppositeEnd;        //Discarded. Causes render errors when accessing with pointer
-    glm::vec3 oppositeEnd;
-
-    void linkOtherEnd(glm::vec3 otherEnd) {
-        oppositeEnd = otherEnd;
-    }
-
-    void updateForce(Particle* part) {
-        glm::vec3 v = part->partPos - oppositeEnd;
-        float magnitude = glm::length(v);
-        if (magnitude > restLength) {
-            magnitude = k * (restLength - magnitude);
-
-            glm::vec3 force = glm::normalize(v) * -magnitude; //A pulling force
-            
-            part->forceAccum += force;          //Pull main particle together
-            //oppositeEnd->forceAccum += force;    //Pull the opposite end towards moving particle
-        }
-    }
-};
-
-//Links a Particle to a ParticleForceGenerator's updateForceMethod
-class ForceRegistry {
-public:
-    void add(Particle* part, ParticleForceGenerator *forceGen) {
-        forceGen->updateForce(part);            //Calculate the force
-    }
-};
-//PARTICLE_HW(1/3) END
-
-
-/*
-class Coil : public Particle{
-public:
-    float age = 0;          //Age since initialized
-    float frequency = 3.f;  //Frequecy of spirals
-    int stage = 1;          //Stage of the firework (inactive, launch, 1st, 2nd explosion)
-    int payload = 1;
-    float direction = 0.f;
-    float velMag = 0.f;
-
-
-    void addCoil(float currTime, glm::vec3 *lastPos) {  //Initial launch movement either coil or straight
-        switch (stage) {
-        case 1:
-            age = currTime - initTime;
-            if (partType == COIL) {         //Coiling firework
-                partAcc = glm::vec3(        //Increase acceleration in spiraling manner
-                    1.f,                        //Accelerate left on x 
-                    cos(age * frequency) * age, //Increase cos waves in y axis with time
-                    sin(age * frequency) * age  //Same as y but in sin for z axis
-                );
-            }
-            else if (partType == FIREWORK) { //Straight firework
-                partAcc = glm::vec3(0.f, 20.f, 0.f); //Accelerate up
-            }
-            break;
-        }
-        *lastPos = partPos;
-    }
-    void prepStage(glm::vec3 lastPos, int phase) {  //Mostly randomizes rng values but also initializes some
-        stage = phase;
-        //std::cout << "STAGE: " << stage << std::endl;
-        despawnTime = (std::rand() % (ageRange[stage - 1][1] - ageRange[stage - 1][0] + 1)) + ageRange[stage - 1][0];   //Randomize its lifespan
-        if (stage > 1) {    //Randomize the explosion particles 
-            partType = COIL;        //Reuse the same particle as parent for 1st new particle
-            direction = (std::rand() % (180 + 1)) * 3.14159 / 180;     //Random direction
-            velMag = (std::rand() % (velRange[stage - 1][1] - velRange[stage - 1][0] + 1)) + velRange[stage - 1][0];    //Vel multiplier from given range
-            partVel = velMag * glm::vec3(cos(direction), cos(direction), 0.f);  //Burst in x,y directions
-            partPos = lastPos;      //Set position to parent's last pos before detonation
-        }
-    }
-};*/
 
 class Model {
 public:
-    glm::vec3 posVec;
-    float position[3];
+    glm::vec3 posVec, rotVec, revVec;   //Vectors for position, rotation, revolution
     float scale;
-    float rotation[3];
-    float revolution[3];
 
-    Model();    //Constructor
+    Model();    //Default Constructor
+    Model(std::string fileAddress, glm::vec3 startPos);     //Constructor 2
+    
     std::vector<GLfloat> fullVertexData;    //Full vertex data array
     GLuint VAO, VBO;                        //VAO & VBO
     glm::mat4 transform;                    //Transform matrix
@@ -279,7 +39,7 @@ public:
 
     //Loads 3D object's properties
     // @param fileAddress - String of the 3D obj's location
-    void loadObj(std::string fileAddress);
+    void loadObj(std::string fileAddress);  //loadObj can be handled by Model constructor on init but not loadTexture and generateVAO.
 
     //Loads and generates opengl textures
     // @param fileAddress (Only use PNG for consistency) - String of the texture file location
@@ -287,6 +47,7 @@ public:
     void loadTexture(std::string fileAddress, int textureIdentifier);
     void generateVAO();
 
+    void copyTextures(Model sourceModel);
     //Calculate transform matrix for revolving around a point
     // @param radius (>0) - Distance of how far the object should be from its origin when revolved
     void revolve(float radius);
@@ -302,17 +63,48 @@ int main(void)
     srand((unsigned) time(NULL));        //RNG seed
 
     //INITIALIZE AND LOAD OBJ FILES
-    Model bullets[MAX_PARTICLES];               //Create array of objects
-    for (int i = 0; i < MAX_PARTICLES; i++) {   
-        bullets[i].loadObj("3D/planet.obj");    //Load the obj properties
-    }
+    Model bullets[MAX_PARTICLES] = {
+        Model("3D/planet.obj", ORIGIN),   //1
+        Model("3D/planet.obj", ORIGIN),   //2
+        Model("3D/planet.obj", ORIGIN),   //3
+        Model("3D/planet.obj", ORIGIN),   //4
+        Model("3D/planet.obj", ORIGIN),   //5
+        Model("3D/planet.obj", ORIGIN),   //6
+        Model("3D/planet.obj", ORIGIN),   //7
+        Model("3D/planet.obj", ORIGIN)    //Last model
+    };
+
+    //THE MASS AGGREGATE MODELS
+    float cubeSideHalfLength = 5.f;
+    glm::vec3 cubeOrigin = { 10.f, 0.f, 0.f };
+    cubeOrigin += glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
+    Model massAggregateModels[8] = {   //Eight cube points
+                                                                                                        //FRONT
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),   //0 Top Left
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),  //1 Bot Left
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),  //2 Top Right
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)), //3 Bot Right
+                                                                                                        //BACK
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),  //4 Top Left
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)), //5 Bot Left
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)), //6 Top Right
+        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)) //7 Bot Right
+    };
+    /*
+      4--------6
+     /|       /|
+    0--------2 |
+    | |      | |
+    | 5--------7
+    |/       |/
+    1--------3
+    */
     /*
     Model playerShip;
     playerShip.loadObj("3D/ship2.obj");
     */
 
     //Vertices for the cube
-
     float skyboxDisplaySize = 100.f;
     float skyboxVertices[]{
     -skyboxDisplaySize, -skyboxDisplaySize, skyboxDisplaySize, //0
@@ -395,10 +187,7 @@ int main(void)
         return -1;
 
 
-
-    float screenWidth = 800.0f, screenHeight = 800.0f;
-
-    window = glfwCreateWindow(screenWidth, screenHeight, "Charles Mathew D. Ong", NULL, NULL);
+    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Charles Mathew D. Ong", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -408,13 +197,25 @@ int main(void)
     glfwMakeContextCurrent(window);
     gladLoadGL();
 
-
+    
     //LOAD THE TEXTURES
-    for (int i = 0; i < MAX_PARTICLES; i++) {
-        bullets[i].loadTexture("3D/mars_color.png", 0);
-        bullets[i].loadTexture("3D/mars_normal.png", 1);
-        bullets[i].loadTexture("3D/mars_impact.png", 2);
+    //Just load one model
+    bullets[0].loadTexture("3D/mars_color.png", 0);
+    bullets[0].loadTexture("3D/mars_normal.png", 1);
+    bullets[0].loadTexture("3D/mars_impact.png", 2);
+    //Then copy its texture since same anyways
+    for (int i = 1; i < MAX_PARTICLES; i++) {
+        bullets[i].copyTextures(bullets[0]);
     }
+    //2 diffrent colors copied to cube models
+    massAggregateModels[0].loadTexture("3D/color_green.png", 0);
+    massAggregateModels[4].loadTexture("3D/color_brown.png", 0);
+    //Doesn't need normal or overlay tex
+    for (int i = 1; i < 4; i++) {
+        massAggregateModels[i].copyTextures(massAggregateModels[0]);
+        massAggregateModels[i + 4].copyTextures(massAggregateModels[4]);
+    }
+
     /*
     playerShip.loadTexture("3D/ship2.png", 0);
     playerShip.loadTexture("3D/ship2_normal.png", 1);
@@ -434,8 +235,13 @@ int main(void)
 
     
     //GENERATE THE VAOs and VBOs
-    for (int i = 0; i < MAX_PARTICLES; i++) {
-        bullets[i].generateVAO();
+    bullets[0].generateVAO();
+    //Same sphere obj so just copy
+    for (int i = 1; i < MAX_PARTICLES; i++) {
+        bullets[i].VAO = bullets[0].VAO;
+    }
+    for (int i = 0; i < 8; i++) {
+        massAggregateModels[i].VAO = bullets[0].VAO;
     }
     //playerShip.generateVAO();
 
@@ -497,49 +303,29 @@ int main(void)
     }
     //stbi_set_flip_vertically_on_load(true);
 
-
-    //Create a pointlight and spotlight light instance
-    Light pointLight, shipLight;
-
-    //Active lighting variables
-    glm::vec3 lightPos;
-    glm::vec3 lightColor;
-    float ambientStr;
-    glm::vec3 ambientColor;
-    float specStr;  
-    float specPhong;
-
-    //Create 2 cameras
-    Camera mainCam(1, screenWidth, screenHeight, 1000.f);   //Perspective cam
-    Camera topCam(0, screenWidth, screenHeight, 1000.f);    //Orthographic cam
-
-    //Set staring camera as the perspective one
-    glm::vec3 cameraPos = mainCam.cameraPos;
-    glm::mat4 view = mainCam.view;
-    glm::mat4 projection = mainCam.projection;
+    float lastTime = glfwGetTime();     //Last frame timestamp
 
     //Keyboard input
-    //void keyboard(GLFWwindow * window, int key, int scancode, int action, int mods);
     glfwSetKeyCallback(window, keyboard);
     glfwSetInputMode(window, GLFW_STICKY_KEYS, 1);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
-    float lastTime = glfwGetTime();     //Last frame timestamp
-
-
-
-    //Initialize models
-    for (int i = 0; i < MAX_PARTICLES; i++) {
-        bullets[i].scale = 10.f;
-    }
-    //playerShip.scale = 0.25/ 4;
-
+    //Create a pointlight and spotlight light instance + activeLight for switching
+    Light pointLight, shipLight, activeLight;
+    //Create cameras
+    Camera mainCam(PERSPECTIVE_MODE, SCREEN_WIDTH, SCREEN_HEIGHT, MAX_CAM_DISTANCE);   //Perspective cam
+    Camera topCam(ORTHOGRAPHIC_MODE, SCREEN_WIDTH, SCREEN_HEIGHT, MAX_CAM_DISTANCE);    //Orthographic cam
+    Camera activeCam = mainCam; //Set active to the persp cam
+    
     Player tester;                      //Instance the player for calculating movement
     tester.startingRotation = 180.f;
     tester.orientation[1] = tester.startingRotation;
-    
+
     glm::vec3 playerFacing;             //For use in spotlight 
 
+    
+
+    
 
 
     //PARTICLE_HW(2/3)
@@ -557,6 +343,7 @@ int main(void)
     ElasticBungee elasticS1;
     //PARTICLE_HW(2/3) END
 
+    ShaderPackage packedShader;
     // Old fireworks HW
     //Coil coilParticle[MAX_PARTICLES];         //Array of fireworks/coils
     //glm::vec3 detonationPos(0.f, 0.f, 0.f);   //Only 1 copy for now. Good for 1 firework only
@@ -578,34 +365,20 @@ int main(void)
         
         //Switch active projection mode
         if (isPerspMode > 0) {
-            mainCam.updateCamera(window, frameTime, glm::vec3(0.f,0.f,-30.f) /*glm::vec3(playerShip.position[0], playerShip.position[1], playerShip.position[2])*/, 0, 0);    //Camera's position. switch with player position
-            cameraPos = mainCam.cameraPos;
-            view = mainCam.view;
-            projection = mainCam.projection;
+            mainCam.updateCamera(window, frameTime, glm::vec3(0.f,0.f,-30.f), 0, 0);    //Camera's position. switch with player position
+            activeCam = mainCam;
         }
         else {
             topCam.updateCamera(window, frameTime, glm::vec3(0.f, 0.f, 0.f), movementInput[0], movementInput[1]);
-            cameraPos = topCam.cameraPos;
-            view = topCam.view;
-            projection = topCam.projection;
+            activeCam = topCam;
         }
 
         //Switch active light
         if (isPointLight) {
-            lightPos = pointLight.lightPos;
-            lightColor = pointLight.lightColor;
-            ambientStr = pointLight.ambientStr;
-            ambientColor = pointLight.ambientColor;
-            specStr = pointLight.specStr;
-            specPhong = pointLight.specPhong;
+            activeLight = pointLight;
         }
         else {
-            lightPos = shipLight.lightPos;
-            lightColor = shipLight.lightColor;
-            ambientStr = shipLight.ambientStr;
-            ambientColor = shipLight.ambientColor;
-            specStr = shipLight.specStr;
-            specPhong = shipLight.specPhong;
+            activeLight = shipLight;
         }
 
         //Enable player movement only in perspective mode
@@ -681,8 +454,9 @@ int main(void)
 
 
             //PARTICLE_HW(3/3) END
-
-
+            for (int i = 0; i < 8; i++) {
+               massAggregateModels[i].translate(massAggregateModels[i].posVec/*glm::vec3(3.f * i, 1.f, 1.f)*/);
+            }
             /*if (projectileType >= BASIC_SPRING && isSwitched) {
                 for (int i = 0; i < MAX_PARTICLES; i++) {
                     bulletParticle[i].despawnParticle(&particleSlots);
@@ -777,15 +551,13 @@ int main(void)
         glUseProgram(skyboxShader);
 
         glm::mat4 sky_view = glm::mat4(1.f);
-        sky_view = glm::mat4(glm::mat3(view));  
-
+        sky_view = glm::mat4(glm::mat3(activeCam.view));
         //Pass the view and projection matrix to the skybox shader
         unsigned int skyboxViewLoc = glGetUniformLocation(skyboxShader, "view");
         glUniformMatrix4fv(skyboxViewLoc, 1, GL_FALSE, glm::value_ptr(sky_view));
 
         unsigned int skyboxProjLoc = glGetUniformLocation(skyboxShader, "projection");
-        glUniformMatrix4fv(skyboxProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
+        glUniformMatrix4fv(skyboxProjLoc, 1, GL_FALSE, glm::value_ptr(activeCam.projection));
         glBindVertexArray(skyboxVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
@@ -804,17 +576,43 @@ int main(void)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         */
 
+        //Begin packing materials for shader
+        packedShader.storeClasses(activeCam, activeLight, playerFacing);
+
         //Render the active bullets
         for (int i = 0; i < MAX_PARTICLES; i++) {
             if (bulletParticle[i].partType) {   //Render when a particle is still active
-                    objectShader.passMVP(bullets[i].transform, projection, view);
-                    objectShader.passTextures(bullets[i].texBase, bullets[i].texNorm, bullets[i].texOverlay, 1);    //0-Base tex and normal only , 1-Base tex with overlay , 2-Base tex with multiply
-                    objectShader.passLight(lightPos, lightColor, ambientColor, ambientStr, specStr, specPhong, cameraPos, 0, playerFacing);
-                    objectShader.draw(bullets[i].VAO, bullets[i].fullVertexData);
-                    //objectShader.draw(bullets[i]);
+                packedShader.storeModelProperties(bullets[i].transform, bullets[i].texBase, bullets[i].texNorm, bullets[i].texOverlay, bullets[i].VAO, bullets[i].fullVertexData);
+                packedShader.blendingMode = 1;
+                packedShader.lightingMode = UNLIT_LIGHTMODE;
+
+                objectShader.drawSequence(packedShader);
                 }
             }
         
+        //Draw all cube models
+        for (int i = 0; i < 8; i++) {
+            packedShader.storeModelProperties(massAggregateModels[i].transform, massAggregateModels[i].texBase, massAggregateModels[i].texNorm, massAggregateModels[i].texOverlay, massAggregateModels[i].VAO, massAggregateModels[i].fullVertexData);
+            packedShader.blendingMode = 0;
+            packedShader.lightingMode = UNLIT_LIGHTMODE;
+
+            objectShader.drawSequence(packedShader);
+        }
+        //Draw the lines/rods connecting the cube
+        /*
+  4--------6
+ /|       /|
+0--------2 |
+| |      | |
+| 5--------7
+|/       |/
+1--------3
+    */
+        /*  //TRIED DRAWING ROD LINES BUT TOO THIN TO BE NOTICEABLY HELPFUL
+        glBegin(GL_LINES);
+            glVertex3f(massAggregateModels[0].posVec.x, massAggregateModels[0].posVec.y, massAggregateModels[0].posVec.z);
+            glVertex3f(massAggregateModels[1].posVec.x, massAggregateModels[1].posVec.y, massAggregateModels[1].posVec.z);
+        glEnd();*/
 
         /*
         //Render the player model
@@ -837,6 +635,10 @@ int main(void)
         glDeleteVertexArrays(1, &bullets[i].VAO);
         glDeleteBuffers(1, &bullets[i].VBO);
     }
+    for (int i = 0; i < 8; i++) {
+        glDeleteVertexArrays(1, &massAggregateModels[i].VAO);
+        glDeleteBuffers(1, &massAggregateModels[i].VBO);
+    }
     /*
     glDeleteVertexArrays(1, &playerShip.VAO);
     glDeleteBuffers(1, &playerShip.VBO);
@@ -850,14 +652,22 @@ int main(void)
 
 
 Model::Model() {
-    posVec = glm::vec3(0.f, 0.f, 0.f);
-
-    position[0] = 0.f;  position[1] = 0.f;  position[2] = 0.f;
-    scale = 1.f;
-    rotation[0] = 0.f;  rotation[1] = 0.f;  rotation[2] = 0.f;
-    revolution[0] = 0.f; revolution[1] = 0.f; revolution[2] = 0.f;
+    posVec = { 0.f, 0.f, 0.f };
+    scale = DEFAULT_MODEL_SIZE;
+    rotVec = { 0.f, 0.f, 0.f };
+    revVec = { 0.f, 0.f, 0.f };
 }
 
+Model::Model(std::string objAddress, glm::vec3 startPos) {
+    posVec = startPos;
+    scale = DEFAULT_MODEL_SIZE;
+    rotVec = { 0.f, 0.f, 0.f };
+    revVec = { 0.f, 0.f, 0.f };
+
+    loadObj(objAddress);
+    //"wrangle the OpenGL extension"    glewInit() or gl3wInit()
+    //loadTexture and generateVAO refuse to work in constructor without clearing old GLuint variables
+}
 
 //Loads 3D object's properties
 // @param fileAddress - String of the 3D obj's location
@@ -1114,6 +924,12 @@ void Model::generateVAO() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
+void Model::copyTextures(Model sourceModel) {
+    this->texBase = sourceModel.texBase;
+    this->texNorm = sourceModel.texNorm;
+    this->texOverlay = sourceModel.texOverlay;
+}
+
 
 //Calculate transform matrix for revolving around a point
 // @param radius (>0) - Distance of how far the object should be from its origin when revolved
@@ -1121,20 +937,20 @@ void Model::revolve(float radius) {
     glm::mat4 identity = glm::mat3(1.0f);
 
     transform = glm::translate(identity,
-        glm::vec3(position[0], position[1], position[2]));  //Use object position as center
+        posVec);  //Use object position as center
     //Scale vertices
     transform = glm::scale(transform,
         glm::vec3(scale, scale, scale));
     //Rotate vertices
     transform = glm::rotate(transform,
-        glm::radians(revolution[0]),
+        glm::radians(revVec.x),
         glm::vec3(1, 0, 0));
     //Rotate first 
     transform = glm::rotate(transform,
-        glm::radians(revolution[1]),
+        glm::radians(revVec.y),
         glm::vec3(0, 1, 0));
     transform = glm::rotate(transform,
-        glm::radians(revolution[2]),
+        glm::radians(revVec.z),
         glm::vec3(0, 0, -1));
     //Then extend by radius
     transform = glm::translate(transform,
@@ -1149,21 +965,21 @@ void Model::rotate() {
     //Transform vertices
     transform = glm::translate(
         identity,
-        glm::vec3(position[0], position[1], position[2]));
+        posVec);
 
     //Scale vertices
     transform = glm::scale(transform,
         glm::vec3(scale, scale, scale));
     //Rotate vertices
     transform = glm::rotate(transform,
-        glm::radians(rotation[0]),
+        glm::radians(rotVec.x),
         glm::vec3(1, 0, 0));
     //Rotate by other axis
     transform = glm::rotate(transform,
-        glm::radians(rotation[1]),
+        glm::radians(rotVec.y),
         glm::vec3(0, 1, 0));
     transform = glm::rotate(transform,
-        glm::radians(rotation[2]),
+        glm::radians(rotVec.z),
         glm::vec3(0, 0, -1));
 }
 
@@ -1174,7 +990,4 @@ void Model::translate(glm::vec3 inputPos) {
     transform = glm::translate(
         identity,
         inputPos);
-    /*transform = glm::translate(
-        identity,
-        glm::vec3(position[0], position[1], position[2]));*/
 }

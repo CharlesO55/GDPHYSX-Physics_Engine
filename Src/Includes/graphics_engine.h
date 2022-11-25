@@ -13,7 +13,13 @@
 #include <iostream>
 #include <vector>
 
+#define UNLIT_LIGHTMODE 0
+#define POINT_LIGHTMODE 1
 
+#define ORTHOGRAPHIC_MODE 0
+#define PERSPECTIVE_MODE 1
+
+#define DEFAULT_MODEL_SIZE 10.f
 /* CLASSES:
 * Light
 * Shader
@@ -21,18 +27,72 @@
 * Player
 */
 
+
+
+
+
 class Light {
 public:
     glm::vec3 lightPos;
     glm::vec3 lightColor;
 
-    float ambientStr = 0.5f;
+    float ambientStr;
     glm::vec3 ambientColor;
 
     float specStr;  //Shine brightness
     float specPhong; //(Smallest is 10.f) Shine size. Lower = Shinier & Bigger
 
     Light();
+};
+
+
+
+
+class Camera {
+public:
+    glm::mat4 projection;   //The projection matrix
+    glm::mat4 view;         //The view matrix
+    glm::vec3 centerPos;    //Eye of the camera
+
+    float screenW, screenH;
+    int perspMode;
+    glm::vec3 camPosAdjustment;
+
+    Camera();
+    Camera(int isPerspective, float screenWidth, float screenHeight, float maxCamRange);
+
+
+    double xPos, yPos;              //Cursor position
+    float camPan[2];
+    float orthoPos[2];
+    glm::vec3 cameraPos;     //Initialize camera position
+
+
+    float dirX, dirY, dirZ;
+
+    void updateCamera(GLFWwindow* window, float deltaTime, glm::vec3 playerPosition, int WSkey, int ADkey);
+};
+
+
+
+class ShaderPackage {
+public:
+    glm::mat4 modelTransform;
+    GLuint texBase, texNorm, texOverlay;
+    GLuint VAO;
+    std::vector<GLfloat> fullVertexData;
+
+    Camera activeCam;
+    Light activeLight;
+
+    glm::vec3 playerFacing;
+
+    int lightingMode;
+    int blendingMode;
+
+    ShaderPackage();
+    void storeModelProperties(glm::mat4 modelTransform, GLuint texBase, GLuint texNorm, GLuint texOverlay, GLuint VAO, std::vector<GLfloat> fullVertexData);    //Model can't be imported bcuz header issues from GLFW
+    void storeClasses(Camera activeCam, Light activeLight, glm::vec3 playerFacing);
 };
 
 
@@ -53,38 +113,15 @@ public:
 
     //Pass lighting properties to shader
     // @param isPointLight - Switches shader lighting mode (-1 Spotlight, 0 Unlit, 1 Point light)
-    void passLight(glm::vec3 lightPos, glm::vec3 lightColor, glm::vec3 ambientColor, float ambientStr, float specStr, float specPhong, glm::vec3 cameraPos, int isPointLight, glm::vec3 playerFacing);
+    //void passLight(glm::vec3 lightPos, glm::vec3 lightColor, glm::vec3 ambientColor, float ambientStr, float specStr, float specPhong, glm::vec3 cameraPos, int isPointLight, glm::vec3 playerFacing);
+    void passLight(Light activeLight, glm::vec3 cameraPos, int isPointLight, glm::vec3 playerFacing);
 
     //Render the object
     void draw(GLuint VAO, std::vector<GLfloat> fullVertexData);
+
+
+    void drawSequence(ShaderPackage packagedShader);
 };
-
-
-
-class Camera {
-public:
-    glm::mat4 projection;   //The projection matrix
-    glm::mat4 view;         //The view matrix
-    glm::vec3 centerPos;    //Eye of the camera
-
-    float screenW, screenH;
-    int perspMode;
-    glm::vec3 camPosAdjustment;
-
-    Camera(int isPerspective, float screenWidth, float screenHeight, float maxCamRange);
-
-
-    double xPos, yPos;              //Cursor position
-    float camPan[2];
-    float orthoPos[2];
-    glm::vec3 cameraPos;     //Initialize camera position
-
-
-    float dirX, dirY, dirZ;
-
-    void updateCamera(GLFWwindow* window, float deltaTime, glm::vec3 playerPosition, int WSkey, int ADkey);
-};
-
 
 
 class Player {
