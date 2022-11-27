@@ -5,6 +5,7 @@
 int projectileType = BULLET;
 int isFired = 0;
 int isSwitched = 0;
+int spaceBarPressed = 0;
 
 int isPointLight = 1;
 int isPerspMode = 1;
@@ -42,6 +43,11 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods) {
         case GLFW_KEY_7:
             projectileType = ELASTIC_BUNGEE;
             isSwitched = 1;
+            break;
+        case GLFW_KEY_SPACE:
+            spaceBarPressed++;
+            if (spaceBarPressed > 1)
+                spaceBarPressed = 0;
             break;
         case GLFW_KEY_TAB:
             exit(0);

@@ -40,7 +40,7 @@ Particle::Particle() {
 
     //Despawn the particle
     void Particle::despawnParticle(int* particleSlots) {
-        if (partType) {
+        if (partType != INACTIVE) {
             partType = INACTIVE;    //Set type to inactive and will not be rendered in main()
             *particleSlots += 1;    //Restore amount of available slots for particles by 1
             std::cout << "DESPAWNPART\n";
@@ -152,7 +152,36 @@ ParticleForceGenerator::ParticleForceGenerator() {
 
                 part->addForceAccum(glm::normalize(v) * magnitude * -k); //Direction vector * magnitude * -k
             }
-            
+        
+
+
+        //CENTRIPETAL FORCE - One particle moves only
+        CentripetalForce::CentripetalForce(glm::vec3 centralOrigin) {
+            this->centralOrigin = centralOrigin;    //The center of the circle. Where particles will pivot around
+            k = 1;
+            radius = 0;
+            radiusMin = 5.f;
+        }
+                
+            void CentripetalForce::updateForce(Particle* part){
+                glm::vec3 v = centralOrigin - part->partPos;    //Vector from end to end
+                radius = glm::length(v);
+                
+                if (radius < radiusMin) {
+                    k = -1;     //Behavior to counteract drag slowing the object and decreasing radius. 
+                                //Turns into a Push force
+                                //Occassionally will draw a star when damp is too strong
+                }
+                else {
+                    k = 1;      //Normal behavior. Pull force
+                }
+
+                float magnitude = glm::length(v) * glm::length(v) / radius;       //  v^2 / r
+
+                glm::vec3 force = glm::normalize(v) * magnitude * k;    //direction to center * magnitude * (push or pull)
+                part->addForceAccum(force);
+            }
+
 
         //BUNGEE FORCE
         ElasticBungee::ElasticBungee() {

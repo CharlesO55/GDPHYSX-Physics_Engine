@@ -338,6 +338,11 @@ int main(void)
     GravityForce gravityGeneral;        //Gravity force calculator
     ConstantForce constantGeneral;      //Constant forces calculator
     DragForce dragGeneral(0.f, 0.1f);   //Drag forces calculator ~ Higher constants = More drag
+
+
+    CentripetalForce centripetalGeneral(ORIGIN);
+
+
     AnchoredSpring anchorS1(ORIGIN);    //Anchored spring calculator. Anchored to origin
     BasicSpring basicS1;
     ElasticBungee elasticS1;
@@ -398,27 +403,31 @@ int main(void)
             frameTime -= deltaTime;                         //Deduct with deltaTime for next loop
 
             //PARTICLE HW(3/x)
-            //INITIALIZATION
-            
+            //INITIALIZATION WHEN SWITCHED PARTICLE
             if (isSwitched) {
                 for (int i = 0; i < MAX_SPRINGS; i++) {
-                    bulletParticle[i].despawnParticle(&particleSlots);
+                    bulletParticle[i].despawnParticle(&particleSlots);  //Despawn all active particles
                 }
 
                 bulletParticle[0].initParticle(projectileType, bullets[0].scale, currTime, springsInitPos[projectileType - 1][0]);
                 bulletParticle[1].initParticle(projectileType, bullets[0].scale, currTime, springsInitPos[projectileType - 1][1]);
                 bulletParticle[0].partVel = glm::vec3(0.f, 0.f, 0.f);   //Stop one pair from moving to show it reacts to the other spring end
+                //bulletParticle[1].partPos = glm::vec3(-20.f, 5.f, 0.f);
 
-                if (projectileType == ANCHORED_SPRING)
+                if (projectileType == ANCHORED_SPRING || projectileType == CENTRIPETAL_FORCE) {
                     bulletParticle[0].mass = 0;     //Turn the anchor into a stationary object to exit updateMotion()
+                }
                 isSwitched = INACTIVE;
+                spaceBarPressed = INACTIVE;
             }
 
-            //Let user apply force
+            
+            //APPLY FORCE WHEN CLICKED
             if (isFired) {
                 registryGeneral.add(&(bulletParticle[1]), &constantGeneral);    //Only apply force to one of the particle pairs
                 isFired = INACTIVE;
             }
+
 
             //Force updates
             switch (projectileType) {
@@ -437,10 +446,16 @@ int main(void)
             case ANCHORED_SPRING:
                 registryGeneral.add(&(bulletParticle[1]), &anchorS1);
                 break;
+            case CENTRIPETAL_FORCE:
+                if (spaceBarPressed != 1) {
+                    registryGeneral.add(&(bulletParticle[1]), &centripetalGeneral);
+                }
+                break;
             default:
                 std::cout << "NO SPRING SELECTED" << std::endl;
             }
-            //Add gravity and drag if activated
+
+            //Add GRAVITY and DRAG if activated
             registryGeneral.add(&(bulletParticle[1]), &gravityGeneral);     //Gravity toggle in particle.h
             registryGeneral.add(&(bulletParticle[1]), &dragGeneral);        //Drag toggled on for all springs
 
@@ -453,10 +468,12 @@ int main(void)
             bullets[1].translate(bulletParticle[1].partPos);
 
 
-            //PARTICLE_HW(3/3) END
+            
             for (int i = 0; i < 8; i++) {
-               massAggregateModels[i].translate(massAggregateModels[i].posVec/*glm::vec3(3.f * i, 1.f, 1.f)*/);
+               massAggregateModels[i].translate(massAggregateModels[i].posVec);
             }
+            //PARTICLE_HW(3/3) END
+
             /*if (projectileType >= BASIC_SPRING && isSwitched) {
                 for (int i = 0; i < MAX_PARTICLES; i++) {
                     bulletParticle[i].despawnParticle(&particleSlots);

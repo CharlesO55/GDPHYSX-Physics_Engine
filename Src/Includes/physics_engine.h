@@ -101,6 +101,19 @@ public:
     };
 
 
+    //CENTRIPETAL FORCE - One particle moves only
+    class CentripetalForce : public ParticleForceGenerator {
+    public:
+        glm::vec3 centralOrigin;    //The center of the circle. Where particles will pivot around
+        float k;
+        float radius;
+        float radiusMin;
+
+        CentripetalForce(glm::vec3 centralOrigin);
+        void updateForce(Particle* part);
+    };
+
+
     //BUNGEE - Pull only when stretched past restLength
     class ElasticBungee : public ParticleForceGenerator {
     public:
