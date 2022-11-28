@@ -15,15 +15,15 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
         switch (key) {
         case GLFW_KEY_1:
-            projectileType = BASIC_SPRING;
+            projectileType = BULLET;
             isSwitched = 1;
             break;
         case GLFW_KEY_2:
-            projectileType = ANCHORED_SPRING;
+            projectileType = ARTILLERY;
             isSwitched = 1;
             break;
         case GLFW_KEY_3:
-            projectileType = ELASTIC_BUNGEE;
+            projectileType = FIREBALL;
             isSwitched = 1;
             break;
         case GLFW_KEY_4:
@@ -58,6 +58,6 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods) {
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
         isFired = 1;
 }

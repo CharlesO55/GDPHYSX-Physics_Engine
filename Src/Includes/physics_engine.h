@@ -8,28 +8,31 @@
 class Particle {
 public:
     //Model modelParticle       //Ideally, possess a model for rendering but can't bring in due to header clashes with libs in main.cpp
-    float size;     //To scale by
+    float scale;     //To scale by
     float damp;    //Damping value
     float mass;
+    float radius;
     int partType;                //Type of the particle
     int isGravityActive;           //Gravity toggle
     int isConstantForceActive;     //Constant force toggle
     int isDragForceActive;         //Drag force toggle
-    float initTime, despawnTime; //despawnTime is its lifespan
+    float despawnTime; //despawnTime is its lifespan
     glm::vec3 partPos;  //Position
     glm::vec3 partVel;  //Velocity
     glm::vec3 partAcc;  //Acceleration
+    glm::vec3 constAcc; //Const acc to apply
     glm::vec3 forceAccum; //Active forces
 
     Particle();
+    Particle(glm::vec3 startPos);
     //Initialize particle variables
-    void initParticle(int projType, float scale, float currTime, glm::vec3 startPos);
+    void initParticle(int projType, glm::vec3 startPos);
 
     //Despawn the particle
-    void despawnParticle(int* particleSlots);
+    void despawnParticle(float deltaTime);
 
     //Update position
-    void updateMotion(float deltaTime, float currTime, int* particleSlots);
+    void updateMotion(float deltaTime);
     void addForceAccum(glm::vec3 newForce);
 
     //Reset forces accumulated
@@ -132,4 +135,56 @@ public:
 class ForceRegistry {
 public:
     void add(Particle* part, ParticleForceGenerator* forceGen);
+};
+
+
+
+class ParticleContact {
+public:
+    Particle* part[2];          //2 Particles
+    float k;                    //Adjust bounciness
+    glm::vec3 contactNormal;    //Direction
+    float deltaTime;
+
+    ParticleContact();
+    int checkCollision();
+
+    void resolve(float deltaTime, Particle* part0, Particle* part1);
+    void resolveVelocity();
+    float calculateSeparatingVelocity();
+
+    float penetrationDepth;
+    void resolveInterpenetration();
+};
+
+/*
+class ParticleContactGenerator {
+public:
+    virtual unsigned int addContact(ParticleContact* contact, unsigned int limit);
+};*/
+
+class ParticleWorld {
+public:
+    ForceRegistry registryGeneral;  //Links forces and particles
+
+
+
+
+
+
+
+    struct ParticleRegistration {   //Register the particles
+        Particle* part;
+        ParticleRegistration* partNext;
+    };
+
+    ParticleRegistration* partHead; //Head/starting particle
+
+    void startFrame();  //Clear force accumulated
+    void integrate(float deltaTime);
+    void runPhysics(float deltaTime);
+    
+    //void runPhysics();
+
+    ParticleWorld(int shots);    //CONSTRUCTOR
 };

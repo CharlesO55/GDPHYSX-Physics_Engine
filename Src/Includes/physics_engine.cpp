@@ -4,68 +4,133 @@
 
 //PARTICLE
 Particle::Particle() {
-    size = 1.f;     //To scale by
-    damp = 0.9f;    //Damping value
+    scale = 10.f;     //Default To scale by
     mass = 1.f;
+    radius = 1.f;
     partType = INACTIVE;                //Type of the particle
     isGravityActive = ACTIVE;           //Gravity toggle
     isConstantForceActive = ACTIVE;     //Constant force toggle
     isDragForceActive = ACTIVE;         //Drag force toggle
-    initTime = 0.f;
     despawnTime = 0.f; //despawnTime is its lifespan
     partPos = ORIGIN;
     partVel = { 0.f, 0.f, 0.f };
     partAcc = { 0.f, 0.f, 0.f };
     forceAccum = { 0.f, 0.f, 0.f };
 }
+Particle::Particle(glm::vec3 startPos) {
+    scale = 10.f;
+    radius = 1.f;
+    despawnTime = 0.f; //despawnTime is its lifespan
+    forceAccum = { 0.f, 0.f, 0.f };
+    partAcc = { 0.f, 0.f, 0.f };
+
+    initParticle(STATIONARY, startPos);
+}
 
     //Initialize particle variables
-    void Particle::initParticle(int projType, float scale, float currTime, glm::vec3 startPos) {	//Initialize values for damp, m, v, a, etc.
-        size = scale;
-        despawnTime = 100;
-        initTime = currTime;    //Time initialized
+    void Particle::initParticle(int projType, glm::vec3 startPos) {	//Initialize values for damp, m, v, a, etc.
+        mass = 1.f;
         partType = projType;
 
-        //damp = dampSettings[projType - 1];  //Settings from particle.h (Replaced by DragForce)
-        mass = massSettings[projType - 1];
         partPos = startPos;
-        partVel = velocitySettings[projType - 1];
-        //partAcc = accelerationSettings[projType - 1];
+        isConstantForceActive = ACTIVE;     //For pushing
 
-        isGravityActive = gravitySettings[projType - 1];
-        isConstantForceActive = constantForceSettings[projType - 1];
-        isDragForceActive = dragForceSettings[projType - 1];
-        std::cout << "INITIALIZED\n";
+
+        switch (projType) {
+        case STATIONARY:
+            despawnTime = 100000.f;
+            partVel = { 0.f, 0.f, 0.f };
+            constAcc = { 0.f, 0.f, 0.f };
+            isGravityActive = INACTIVE;
+            isDragForceActive = ACTIVE;
+            break;
+        case BULLET:
+            despawnTime = 5.f;
+            partVel = { 2.f, 0.f, 0.f };
+            constAcc = { 5.f, 8.f, 0.f };
+            isGravityActive = ACTIVE;
+            isDragForceActive = ACTIVE;
+            break;
+        case ARTILLERY:
+            despawnTime = 5.f;
+            partVel = { 10.f, 20.f, 0.f };
+            constAcc = { 5.f, 3.f, 0.f };
+            isGravityActive = ACTIVE;
+            isDragForceActive = ACTIVE;
+            break;
+        case FIREBALL:
+            despawnTime = 5.f;
+            partVel = { 5.f, 0.f, 0.f };
+            constAcc = { 2.f, 10.f, 0.f };
+            isGravityActive = INACTIVE;
+            isDragForceActive = ACTIVE;
+            break;
+        case LASER:
+            despawnTime = 5.f;
+            partVel = { 5.f, 0.f, 0.f };
+            constAcc = { 0.f, 0.f, 0.f };
+            isGravityActive = INACTIVE;
+            isDragForceActive = INACTIVE;
+            break;
+        //(SPRINGS DEACTIVATED)
+        //For springs need to change partPos to keep restLength
+        case BASIC_SPRING:
+            despawnTime = 100.f;
+            partVel = { 0.f, 0.1f, 0.f };
+            constAcc = {-10.f, 5.f, 0.f };
+            isGravityActive = INACTIVE;
+            isDragForceActive = ACTIVE;
+            break;
+        case ANCHORED_SPRING:
+            despawnTime = 100.f;
+            partVel = { 0.1f, 0.f, 0.f };
+            constAcc = { 100.f, 0.f, 0.f };
+            isGravityActive = ACTIVE;
+            isDragForceActive = ACTIVE;
+            break;
+        case ELASTIC_BUNGEE:
+            despawnTime = 100.f;
+            partVel = { 0.1f, 0.f, 0.f };
+            constAcc = { 100.f, 0.f, 0.f };
+            isGravityActive = INACTIVE;
+            isDragForceActive = ACTIVE;
+            break;
+
+
+        default:
+            std::cout << "INITIALIZED NOT IN SCOPE" << std::endl;
+        }
     }
 
-    //Despawn the particle
-    void Particle::despawnParticle(int* particleSlots) {
-        if (partType != INACTIVE) {
+    //Check and despawn the particle
+    void Particle::despawnParticle(float deltaTime) {
+        despawnTime -= deltaTime;
+
+        //Check if still active and already pass lifespan
+        if (partType != INACTIVE && despawnTime <= 0) {
             partType = INACTIVE;    //Set type to inactive and will not be rendered in main()
-            *particleSlots += 1;    //Restore amount of available slots for particles by 1
+            
             std::cout << "DESPAWNPART\n";
         }
     }
 
     //Update position
-    void Particle::updateMotion(float deltaTime, float currTime, int* particleSlots) {    //Update particle's motion
+    void Particle::updateMotion(float deltaTime) {    //Update particle's motion
+        despawnParticle(deltaTime);     //Attempt to despawn particle and update its lifetime
         if (!partType || !mass) {
             return;     //End when particle isn't active or is unmovable
         }
 
         //Assume particle is still active if still not exited
-        if (currTime - initTime < despawnTime) {  //Check if should still be active before updating
-            partAcc = (1 / mass) * forceAccum;      //Calculate acc from total forces
-            partVel += partAcc * deltaTime;         //Add to velocity
-            //partVel *= damp;      //Replaced by DragForce
-            partPos += partVel * deltaTime * size;  //Update position
-            //std::cout << "UPDARE\n";
-        }
-        else {  //Despawn when lifespan is exceeded
-            despawnParticle(particleSlots);
-        }
+        
+        partAcc = (1 / mass) * forceAccum;      //Calculate acc from total forces
+        partVel += partAcc * deltaTime;         //Add to velocity
+        //partVel *= damp;      //Replaced by DragForce
+        partPos += partVel * deltaTime * scale;  //Update position
+
         clearForceAccum();  //Clear total forces for next loop
     }
+
     //Adds force
     void Particle::addForceAccum(glm::vec3 newForce) {
         forceAccum += newForce;
@@ -96,7 +161,7 @@ ParticleForceGenerator::ParticleForceGenerator() {
         //CONSTANT FORCE
         void ConstantForce::updateForce(Particle* part) {
             if (part->isConstantForceActive)
-                part->addForceAccum(accelerationSettings[(part->partType) - 1] * part->mass);    //Add to particle's force accumulated
+                part->addForceAccum(part->constAcc * part->mass);    //Add to particle's force accumulated
         }
 
         //DRAG FORCE
@@ -105,7 +170,7 @@ ParticleForceGenerator::ParticleForceGenerator() {
                 k2 = constant2;
             }
             void DragForce::updateForce(Particle* part) {
-                if (part->isDragForceActive) {
+                if (part->isDragForceActive && part->partVel != glm::vec3(0.f, 0.f, 0.f)) {
                     float drag = glm::length(part->partVel);    //Magnitude of current particle velocity
                     drag = (k1 * drag) + (k2 * drag * drag);    //Drag using constants
 
@@ -215,6 +280,124 @@ ParticleForceGenerator::ParticleForceGenerator() {
 //FORCE REGISTRY
     void ForceRegistry::add(Particle* part, ParticleForceGenerator* forceGen) {
         forceGen->updateForce(part);            //Calculate the force
+    }
+
+
+
+//PARTICLE CONTACT
+ParticleContact::ParticleContact() {
+    part[0] = NULL;   part[1] = NULL;       //2 Particles
+    k = 1;                                  //Adjust bounciness
+    contactNormal = { 0.f, 0.f, 0.f };      //Direction
+    deltaTime = 0.f;
+    penetrationDepth = 1.f;
+}
+    void ParticleContact::resolve(float deltaTime, Particle* part0, Particle* part1) {
+        this->deltaTime = deltaTime;    //Save the time
+        this->part[0] = part0;
+        this->part[1] = part1;
+
+        if (checkCollision()) {     //If collision occurs
+            std::cout << "COLLISION\n";
+            if (part[1]) {
+                contactNormal = glm::normalize(part[0]->partPos - part[1]->partPos);
+            }
+            resolveVelocity();
+            resolveInterpenetration();
+        }
+    }
+        
+        void ParticleContact::resolveVelocity() {
+            //Check velocity if separating
+            float sepVel = glm::dot((part[0]->partVel - part[1]->partVel), contactNormal);
+            if (sepVel > 0) {
+                return;
+            }
+
+            //Check movable mass
+            float totalInverseMass = 1 / part[0]->mass;
+            if (part[1]) {
+                totalInverseMass += 1 / part[1]->mass;
+            }
+            if (totalInverseMass <= 0) {
+                return;
+            }
+            float deltaVel = -sepVel * k;
+            deltaVel -= sepVel;
+
+            glm::vec3 impulsePerMass = deltaVel / totalInverseMass * contactNormal;
+
+
+            part[0]->partVel += impulsePerMass * part[0]->mass;
+            if (part[1]) {
+                part[1]->partVel += -impulsePerMass * part[1]->mass;
+            }
+        }
+
+
+        //CHECKS COLLISION AND DEPTH
+        int ParticleContact::checkCollision() {
+            if (part[1]) {
+                float posDistance = glm::length(part[0]->partPos - part[1]->partPos);
+                float radSum = part[0]->radius + part[1]->radius;
+                penetrationDepth = posDistance - radSum;    //Actual distance between particles - Min distance between circles
+            }
+            if (penetrationDepth <= 0) {
+                return 1;
+            }
+            return 0;
+        }
+
+        //RESOLVE INTERPENETRATIONS
+        void ParticleContact::resolveInterpenetration() {
+            //Check if there's movable mass
+            float totalInverseMass = 1 / part[0]->mass;
+            if (part[1]) {
+                totalInverseMass += 1 / part[1]->mass;
+            }
+            if (totalInverseMass <= 0) {
+                return;
+            }
+            std::cout << "PEN\n";
+            //Find the proportional amount of movement to mass
+            glm::vec3 movePerMass = (-penetrationDepth / totalInverseMass) * contactNormal;    //Magnitude to move by * Direction
+
+            //Reposition the particles
+            part[0]->partPos += movePerMass * part[0]->mass;        //Move according to normal
+            if (part[1]) {
+                part[1]->partPos += -movePerMass * part[1]->mass;   //Move in opposite pos
+            }
+        }
+
+
+
+
+
+
+
+//PARTICLE WORLD
+    //Clear all accumulated forces in particle links
+    void ParticleWorld::startFrame() {
+        ParticleRegistration* currPart = partHead;
+
+        while (currPart) {  //While the current particle is existing/not null
+            currPart->part->clearForceAccum();  //Clear the particle's force
+            currPart = currPart->partNext;      //Loop to the next linked particle
+        }
+    }
+    //Perform physics calculations in particle links
+    void ParticleWorld::integrate(float deltaTime) {
+        ParticleRegistration* currPart = partHead;
+
+        while(currPart) {
+            currPart->part->updateMotion(deltaTime);  //Fix
+            currPart = currPart->partNext;
+        }
+    }
+
+    void ParticleWorld::runPhysics(float deltaTime) {
+        //registryGeneral.add();
+        integrate(deltaTime);
     }
 
 /*

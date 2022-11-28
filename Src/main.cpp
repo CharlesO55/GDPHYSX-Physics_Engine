@@ -26,11 +26,13 @@
 
 class Model {
 public:
+    Particle* particleLink;
     glm::vec3 posVec, rotVec, revVec;   //Vectors for position, rotation, revolution
     float scale;
 
-    Model();    //Default Constructor
-    Model(std::string fileAddress, glm::vec3 startPos);     //Constructor 2
+    Model();    //Default Constructor. Doesn't load file path
+    Model(std::string fileAddress, glm::vec3 startPos);     //Constructor non-particle linked
+    Model(std::string fileAddress, Particle* particle);     //Constructor for particle linked
     
     std::vector<GLfloat> fullVertexData;    //Full vertex data array
     GLuint VAO, VBO;                        //VAO & VBO
@@ -52,7 +54,7 @@ public:
     // @param radius (>0) - Distance of how far the object should be from its origin when revolved
     void revolve(float radius);
     void rotate();
-    void translate(glm::vec3 inputPos);
+    void translate(/*glm::vec3 inputPos*/);
 };
 
 
@@ -62,33 +64,35 @@ int main(void)
     GLFWwindow* window;
     srand((unsigned) time(NULL));        //RNG seed
 
+    Particle bulletParticle[MAX_PARTICLES];     //Array of basic Particles
     //INITIALIZE AND LOAD OBJ FILES
     Model bullets[MAX_PARTICLES] = {
-        Model("3D/planet.obj", ORIGIN),   //1
-        Model("3D/planet.obj", ORIGIN),   //2
-        Model("3D/planet.obj", ORIGIN),   //3
-        Model("3D/planet.obj", ORIGIN),   //4
-        Model("3D/planet.obj", ORIGIN),   //5
-        Model("3D/planet.obj", ORIGIN),   //6
-        Model("3D/planet.obj", ORIGIN),   //7
-        Model("3D/planet.obj", ORIGIN)    //Last model
+        Model("3D/planet.obj", &(bulletParticle[0])),   //1
+        Model("3D/planet.obj", &(bulletParticle[1])),   //2
+        Model("3D/planet.obj", &(bulletParticle[2])),   //3
+        Model("3D/planet.obj", &(bulletParticle[3])),   //4
+        Model("3D/planet.obj", &(bulletParticle[4])),   //5
+        Model("3D/planet.obj", &(bulletParticle[5])),   //6
+        Model("3D/planet.obj", &(bulletParticle[6])),   //7
+        Model("3D/planet.obj", &(bulletParticle[7]))    //Last model
     };
 
     //THE MASS AGGREGATE MODELS
     float cubeSideHalfLength = 5.f;
     glm::vec3 cubeOrigin = { 10.f, 0.f, 0.f };
     cubeOrigin += glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
-    Model massAggregateModels[8] = {   //Eight cube points
-                                                                                                        //FRONT
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),   //0 Top Left
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),  //1 Bot Left
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),  //2 Top Right
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)), //3 Bot Right
-                                                                                                        //BACK
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),  //4 Top Left
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)), //5 Bot Left
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)), //6 Top Right
-        Model("3D/planet.obj", cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)) //7 Bot Right
+
+    Particle massParticle[8] = {
+                //FRONT
+        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),     //0 Top Left
+        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),    //1 Bot Left
+        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),    //2 Top Right
+        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),   //3 Bot Right
+        //BACK
+        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),     //4 Top Left
+        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //5 Bot Left
+        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //6 Top Right
+        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength))   //7 Bot Right
     };
     /*
       4--------6
@@ -99,6 +103,18 @@ int main(void)
     |/       |/
     1--------3
     */
+
+    Model massAggregateModels[8] = {   //Eight cube points
+        Model("3D/planet.obj", &(massParticle[0])),
+        Model("3D/planet.obj", &(massParticle[1])),
+        Model("3D/planet.obj", &(massParticle[2])),
+        Model("3D/planet.obj", &(massParticle[3])),
+        Model("3D/planet.obj", &(massParticle[4])),
+        Model("3D/planet.obj", &(massParticle[5])),
+        Model("3D/planet.obj", &(massParticle[6])),
+        Model("3D/planet.obj", &(massParticle[7]))
+    };
+    
     /*
     Model playerShip;
     playerShip.loadObj("3D/ship2.obj");
@@ -187,7 +203,7 @@ int main(void)
         return -1;
 
 
-    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Charles Mathew D. Ong", NULL, NULL);
+    window = glfwCreateWindow((int) SCREEN_WIDTH, (int) SCREEN_HEIGHT, "Charles Mathew D. Ong", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -303,7 +319,7 @@ int main(void)
     }
     //stbi_set_flip_vertically_on_load(true);
 
-    float lastTime = glfwGetTime();     //Last frame timestamp
+    float lastTime = (float) glfwGetTime();     //Last frame timestamp
 
     //Keyboard input
     glfwSetKeyCallback(window, keyboard);
@@ -329,7 +345,7 @@ int main(void)
 
 
     //PARTICLE_HW(2/3)
-    Particle bulletParticle[MAX_SPRINGS];     //Array of basic Particles
+    
     int particleSlots = MAX_SPRINGS - 1;      //Counter to avoid exceeding total Models limit
     
     ForceRegistry registryGeneral;  //Links forces and particles
@@ -355,12 +371,17 @@ int main(void)
     //int phase = 2;   //Phase of the fireworks. (1-Launch, 2-Spread)
 
     
+    ParticleContact contactGeneral;
+    
+
+    //ParticleWorld partWorld(projectileHead);
+    
     while (!glfwWindowShouldClose(window))  //Main loop for each frame
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //Frame and time calculator
-        GLfloat currTime = glfwGetTime();       //Current time
+        GLfloat currTime = (GLfloat) glfwGetTime();       //Current time
         float frameTime = currTime - lastTime;  //Time passed
         if (frameTime > 2) {    //Avoid large skips in time
             lastTime = currTime - 0.2;
@@ -402,33 +423,26 @@ int main(void)
             float deltaTime = fmin(frameTime, TIMESTEP);    //Doesn't exceed timesteps
             frameTime -= deltaTime;                         //Deduct with deltaTime for next loop
 
+
             //PARTICLE HW(3/x)
-            //INITIALIZATION WHEN SWITCHED PARTICLE
-            if (isSwitched) {
-                for (int i = 0; i < MAX_SPRINGS; i++) {
-                    bulletParticle[i].despawnParticle(&particleSlots);  //Despawn all active particles
-                }
-
-                bulletParticle[0].initParticle(projectileType, bullets[0].scale, currTime, springsInitPos[projectileType - 1][0]);
-                bulletParticle[1].initParticle(projectileType, bullets[0].scale, currTime, springsInitPos[projectileType - 1][1]);
-                bulletParticle[0].partVel = glm::vec3(0.f, 0.f, 0.f);   //Stop one pair from moving to show it reacts to the other spring end
-                //bulletParticle[1].partPos = glm::vec3(-20.f, 5.f, 0.f);
-
-                if (projectileType == ANCHORED_SPRING || projectileType == CENTRIPETAL_FORCE) {
-                    bulletParticle[0].mass = 0;     //Turn the anchor into a stationary object to exit updateMotion()
-                }
-                isSwitched = INACTIVE;
-                spaceBarPressed = INACTIVE;
-            }
-
-            
-            //APPLY FORCE WHEN CLICKED
             if (isFired) {
-                registryGeneral.add(&(bulletParticle[1]), &constantGeneral);    //Only apply force to one of the particle pairs
+                for (int i = 0; i < MAX_PARTICLES; i++) {
+                    if (bulletParticle[i].partType == INACTIVE) {
+                        bulletParticle[i].initParticle(projectileType, ORIGIN);
+                        break;
+                    }
+                }
                 isFired = INACTIVE;
             }
 
 
+           
+            /*
+            if (isFired) {
+                massParticle[1].partVel += glm::vec3(0.f, 5.f, 0.f);
+                isFired = INACTIVE;
+            }*/
+            /*
             //Force updates
             switch (projectileType) {
             case BASIC_SPRING:
@@ -453,91 +467,30 @@ int main(void)
                 break;
             default:
                 std::cout << "NO SPRING SELECTED" << std::endl;
-            }
+            }*/
 
-            //Add GRAVITY and DRAG if activated
-            registryGeneral.add(&(bulletParticle[1]), &gravityGeneral);     //Gravity toggle in particle.h
-            registryGeneral.add(&(bulletParticle[1]), &dragGeneral);        //Drag toggled on for all springs
-
-            //Motion updates using all active forces
-            bulletParticle[0].updateMotion(deltaTime, currTime, &particleSlots);
-            bulletParticle[1].updateMotion(deltaTime, currTime, &particleSlots);
-
-            //Copy particle pos to model pos
-            bullets[0].translate(bulletParticle[0].partPos);
-            bullets[1].translate(bulletParticle[1].partPos);
-
-
+            
+            
             
             for (int i = 0; i < 8; i++) {
-               massAggregateModels[i].translate(massAggregateModels[i].posVec);
+                //registryGeneral.add(&(massParticle[i]), &dragGeneral);
+                massParticle[i].updateMotion(deltaTime);
+                massAggregateModels[i].translate();
+               
+               if (bullets[i].particleLink->partType != INACTIVE) {
+                   registryGeneral.add(&(bulletParticle[i]), &constantGeneral);
+                   registryGeneral.add(&(bulletParticle[i]), &gravityGeneral);     //Gravity toggle in particle.h
+                   registryGeneral.add(&(bulletParticle[i]), &dragGeneral);        //Drag toggled on for all springs
+                   
+                   
+                   bulletParticle[i].updateMotion(deltaTime);
+                   bullets[i].translate();
+               }
+               contactGeneral.resolve(deltaTime, &(massParticle[2]), &bulletParticle[i]);
             }
-            //PARTICLE_HW(3/3) END
-
-            /*if (projectileType >= BASIC_SPRING && isSwitched) {
-                for (int i = 0; i < MAX_PARTICLES; i++) {
-                    bulletParticle[i].despawnParticle(&particleSlots);
-                }
-                isSwitched = INACTIVE;
-            }*/
-            /*
-            //BULLET INITIALIZATION
-            //If a bullet projectile is fired, initialize an inactive particles
-            if (isFired && particleSlots > 0) {
-                switch (projectileType) {
-                /*case COIL:
-                case FIREWORK:
-                    for (int i = 0; i < MAX_PARTICLES; i++) {
-                        if (coilParticle[i].partType < 1) {            //Find an inactive particle and initialize it
-                            coilParticle[i].initParticle(projectileType, bullets[i].scale, currTime);
-                            coilParticle[i].prepStage(detonationPos, phase);   //Prepare its spawn location and rng values
-                            break;  //Exit for loop when one is initialized
-                        }
-                    }
-                    break;*/
-            /*
-                case BASIC_SPRING:
-                case ANCHORED_SPRING:
-                case ELASTIC_BUNGEE:
-                    bulletParticle[0].initParticle(projectileType, bullets[0].scale, currTime, ORIGIN); //Serve as particle on one end
-                    //bulletParticle[1].initParticle(projectileType, bullets[0].scale, currTime); //Serve as the other particle
-                    //bulletParticle[1].partPos = glm::vec3(2.f, 0.f, 0.f);                       //Offset to spring rest legnth
-                    //bulletParticle[0].despawnTime = 100;    //Readjust despawn time
-                    //bulletParticle[1].despawnTime = 100;    //Readjust despawn time
-                    break;
-                default:    //For bullet initialization
-                    for (int i = 0; i < MAX_PARTICLES; i++) {
-                        if (bulletParticle[i].partType < ACTIVE) {            //Find an inactive particle and initialize it
-                            bulletParticle[i].initParticle(projectileType, bullets[i].scale, currTime, ORIGIN);
-                            break;  //Exit the for loop to avoid initializing other INACTIVE particles
-                        }
-                    }
-                    break;  //Exit switch case
-                }
-                isFired = INACTIVE;
-                particleSlots--;    //Decrese number of particle slots available
-            }*/
             
-
-            //UPDATES
-            //Continue updating active particles
-            /*for (int i = 0; i < MAX_PARTICLES; i++) {
-                if (bulletParticle[i].partType) {
-                    //Links particle to force it will receive
-                    registryGeneral.add(&(bulletParticle[i]), &gravityGeneral);         //Gravity   
-                    registryGeneral.add(&(bulletParticle[i]), &constantGeneral);        //Constant forces
-                    registryGeneral.add(&(bulletParticle[i]), &dragGeneral);            //Drag force
-                    
-                    bulletParticle[i].updateMotion(deltaTime, currTime, &particleSlots);    //Update the bullets
-
-                    bullets[i].translate(bulletParticle[i].partPos);                        //Update model pos
-                }/*
-                else if (coilParticle[i].partType && (projectileType >= COIL)) {
-                    coilParticle[i].updateMotion(deltaTime, currTime, &particleSlots);      //Update firework and coil
-                    coilParticle[i].addCoil(currTime, &detonationPos);
-                    bullets[i].translate(coilParticle[i].partPos);
-                }*/
-            /*}*/   
+            //contactGeneral.resolve(deltaTime, &(massParticle[0]), &(massParticle[1]));
+            
             
             
             /*//FIREWORK SPAWNER
@@ -598,7 +551,7 @@ int main(void)
 
         //Render the active bullets
         for (int i = 0; i < MAX_PARTICLES; i++) {
-            if (bulletParticle[i].partType) {   //Render when a particle is still active
+            if (bulletParticle[i].partType != INACTIVE) {   //Render when a particle is still active
                 packedShader.storeModelProperties(bullets[i].transform, bullets[i].texBase, bullets[i].texNorm, bullets[i].texOverlay, bullets[i].VAO, bullets[i].fullVertexData);
                 packedShader.blendingMode = 1;
                 packedShader.lightingMode = UNLIT_LIGHTMODE;
@@ -673,13 +626,23 @@ Model::Model() {
     scale = DEFAULT_MODEL_SIZE;
     rotVec = { 0.f, 0.f, 0.f };
     revVec = { 0.f, 0.f, 0.f };
+    particleLink = NULL;
 }
-
 Model::Model(std::string objAddress, glm::vec3 startPos) {
-    posVec = startPos;
+    posVec = startPos; 
     scale = DEFAULT_MODEL_SIZE;
     rotVec = { 0.f, 0.f, 0.f };
     revVec = { 0.f, 0.f, 0.f };
+    particleLink = NULL;
+
+    loadObj(objAddress);
+}
+Model::Model(std::string objAddress, Particle* particle) {
+    posVec = particle->partPos;
+    scale = DEFAULT_MODEL_SIZE;
+    rotVec = { 0.f, 0.f, 0.f };
+    revVec = { 0.f, 0.f, 0.f };
+    particleLink = particle;
 
     loadObj(objAddress);
     //"wrangle the OpenGL extension"    glewInit() or gl3wInit()
@@ -1001,10 +964,18 @@ void Model::rotate() {
 }
 
 
-void Model::translate(glm::vec3 inputPos) {
+void Model::translate(/*glm::vec3 inputPos*/) {
     glm::mat4 identity = glm::mat3(1.0f);
 
+    if (particleLink != NULL) {
+        transform = glm::translate(
+            identity,
+            particleLink->partPos);
+        return;
+    }
+    /*
     transform = glm::translate(
         identity,
         inputPos);
+    */
 }
