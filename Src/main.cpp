@@ -346,14 +346,14 @@ int main(void)
 
     //PARTICLE_HW(2/3)
     
-    int particleSlots = MAX_SPRINGS - 1;      //Counter to avoid exceeding total Models limit
+
     
     ForceRegistry registryGeneral;  //Links forces and particles
 
     //Force Generators
     GravityForce gravityGeneral;        //Gravity force calculator
     ConstantForce constantGeneral;      //Constant forces calculator
-    DragForce dragGeneral(0.f, 0.1f);   //Drag forces calculator ~ Higher constants = More drag
+    DragForce dragGeneral(0.9f, 0.1f);   //Drag forces calculator ~ Higher constants = More drag
 
 
     CentripetalForce centripetalGeneral(ORIGIN);
@@ -372,8 +372,26 @@ int main(void)
 
     
     ParticleContact contactGeneral;
-    
-
+    ParticleContact rodContact;
+    Rod rod[8] = {
+        Rod(&(massParticle[2]), &(massParticle[0])),
+        Rod(&(massParticle[2]), &(massParticle[6])),
+        Rod(&(massParticle[2]), &(massParticle[3])),
+        Rod(&(massParticle[2]), &(massParticle[5])),
+        Rod(&(massParticle[2]), &(massParticle[4])),
+        Rod(&(massParticle[2]), &(massParticle[2])),
+        Rod(&(massParticle[2]), &(massParticle[7])),
+        Rod(&(massParticle[2]), &(massParticle[1]))
+    };
+ /*
+  4--------6          4--------6
+ /|       /|         /|       b|
+0--------2 |        0----a---2 |
+| |      | |        | |      | |
+| 5--------7        | 5------c-7
+|/       |/         |/       |/
+1--------3          1--------3
+*/
     //ParticleWorld partWorld(projectileHead);
     
     while (!glfwWindowShouldClose(window))  //Main loop for each frame
@@ -473,7 +491,7 @@ int main(void)
             
             
             for (int i = 0; i < 8; i++) {
-                //registryGeneral.add(&(massParticle[i]), &dragGeneral);
+                registryGeneral.add(&(massParticle[i]), &dragGeneral);
                 massParticle[i].updateMotion(deltaTime);
                 massAggregateModels[i].translate();
                
@@ -486,8 +504,14 @@ int main(void)
                    bulletParticle[i].updateMotion(deltaTime);
                    bullets[i].translate();
                }
-               contactGeneral.resolve(deltaTime, &(massParticle[2]), &bulletParticle[i]);
+
+               contactGeneral.resolve(deltaTime, &(massParticle[2]), &bulletParticle[i]);     
+               //MOVE RODS
+               if (rod[i].fillContact(&rodContact)) {
+                   rodContact.resolveInterpenetration();    //Doesn't actually do anything. No penetration depth is passed (disabled in method)
+               }
             }
+
             
             //contactGeneral.resolve(deltaTime, &(massParticle[0]), &(massParticle[1]));
             
@@ -568,21 +592,7 @@ int main(void)
 
             objectShader.drawSequence(packedShader);
         }
-        //Draw the lines/rods connecting the cube
-        /*
-  4--------6
- /|       /|
-0--------2 |
-| |      | |
-| 5--------7
-|/       |/
-1--------3
-    */
-        /*  //TRIED DRAWING ROD LINES BUT TOO THIN TO BE NOTICEABLY HELPFUL
-        glBegin(GL_LINES);
-            glVertex3f(massAggregateModels[0].posVec.x, massAggregateModels[0].posVec.y, massAggregateModels[0].posVec.z);
-            glVertex3f(massAggregateModels[1].posVec.x, massAggregateModels[1].posVec.y, massAggregateModels[1].posVec.z);
-        glEnd();*/
+
 
         /*
         //Render the player model

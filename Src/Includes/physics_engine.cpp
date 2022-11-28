@@ -10,6 +10,7 @@ Particle::Particle() {
     partType = INACTIVE;                //Type of the particle
     isGravityActive = ACTIVE;           //Gravity toggle
     isConstantForceActive = ACTIVE;     //Constant force toggle
+    constAcc = { 0.f, 0.f, 0.f };
     isDragForceActive = ACTIVE;         //Drag force toggle
     despawnTime = 0.f; //despawnTime is its lifespan
     partPos = ORIGIN;
@@ -47,7 +48,7 @@ Particle::Particle(glm::vec3 startPos) {
         case BULLET:
             despawnTime = 5.f;
             partVel = { 2.f, 0.f, 0.f };
-            constAcc = { 5.f, 8.f, 0.f };
+            constAcc = { 5.f, 9.f, 0.f };
             isGravityActive = ACTIVE;
             isDragForceActive = ACTIVE;
             break;
@@ -297,12 +298,15 @@ ParticleContact::ParticleContact() {
         this->part[0] = part0;
         this->part[1] = part1;
 
+
+
+
         if (checkCollision()) {     //If collision occurs
             std::cout << "COLLISION\n";
             if (part[1]) {
                 contactNormal = glm::normalize(part[0]->partPos - part[1]->partPos);
             }
-            resolveVelocity();
+            resolveVelocity();          //[WORK ON THIS METHOD]
             resolveInterpenetration();
         }
     }
@@ -368,6 +372,59 @@ ParticleContact::ParticleContact() {
                 part[1]->partPos += -movePerMass * part[1]->mass;   //Move in opposite pos
             }
         }
+
+
+        ParticleLinker::ParticleLinker() {
+            part[0] = NULL;     part[1] = NULL;
+            lengthLimit = 0.f;
+            currLength = 0.f;
+        }
+        Rod::Rod(Particle* part0, Particle* part1) {
+            part[0] = part0;
+            part[1] = part1;
+            this->lengthLimit = glm::length(part[0]->partPos - part[1]->partPos);       //Remember the distance between each part
+            this->contactNormal = glm::normalize(part[0]->partPos - part[1]->partPos);  //Remember the between angle each part
+            currLength = 0.f;
+        }
+        unsigned ParticleLinker::fillContact(ParticleContact* contact) {
+            std::cout << "NO CONTACT PARTICLE LINKER\n";
+            return 0;
+        }
+        
+
+            unsigned Rod::fillContact(ParticleContact* contact) {
+                currLength = glm::length(part[0]->partPos - part[1]->partPos);
+                if (currLength == lengthLimit) {
+                    return 0;
+                }
+                
+                
+                //Just directly change the position since we know the angle and length they were init in
+                part[1]->partPos = part[0]->partPos + (lengthLimit * -contactNormal);
+
+
+
+                //this->contactNormal = glm::normalize(part[0]->partPos - part[1]->partPos);    //If need current angle
+                
+                contact->part[0] = part[0];
+                contact->part[1] = part[1];
+                contact->k = 0.f;
+                
+                //Causes errors
+                /*
+                if (currLength > lengthLimit) {
+                    contact->contactNormal = -contactNormal;
+                    contact->penetrationDepth = (currLength - lengthLimit);
+                }
+                
+                else if (currLength < lengthLimit) {
+                    contact->contactNormal = contactNormal;
+                    contact->penetrationDepth = (currLength - lengthLimit);
+                }*/
+
+                return 1;
+            }
+        
 
 
 

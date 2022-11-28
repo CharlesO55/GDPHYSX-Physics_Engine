@@ -9,7 +9,7 @@ class Particle {
 public:
     //Model modelParticle       //Ideally, possess a model for rendering but can't bring in due to header clashes with libs in main.cpp
     float scale;     //To scale by
-    float damp;    //Damping value
+    //float damp;    //Damping value
     float mass;
     float radius;
     int partType;                //Type of the particle
@@ -155,6 +155,21 @@ public:
 
     float penetrationDepth;
     void resolveInterpenetration();
+};
+
+class ParticleLinker {
+public:
+    ParticleLinker();
+    Particle* part[2];
+    float currLength, lengthLimit;
+    glm::vec3 contactNormal;
+    virtual unsigned fillContact(ParticleContact *contact);
+};
+
+class Rod : public ParticleLinker {
+public:
+    Rod(Particle* part0, Particle* part1);
+    unsigned fillContact(ParticleContact* contact);
 };
 
 /*

@@ -32,7 +32,7 @@
 #define ACTIVE 1
 #define SPAWN 1
 #define MAX_PARTICLES 8
-#define MAX_SPRINGS 2
+//#define MAX_SPRINGS 2
 
 static glm::vec3 ORIGIN = glm::vec3(0.f, 0.f, 0.f);
 
