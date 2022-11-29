@@ -10,7 +10,7 @@ extern int isPointLight;
 extern int isPerspMode;
 extern int movementInput[3];
 
-extern int spaceBarPressed;
+extern int isSpaceBarPressed;
 
 void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);

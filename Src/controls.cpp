@@ -3,9 +3,9 @@
 #include "Includes/particle.h"
 
 int projectileType = BULLET;
-int isFired = 0;
+int isFired = INACTIVE;
 int isSwitched = 0;
-int spaceBarPressed = 0;
+int isSpaceBarPressed = 0;
 
 int isPointLight = 1;
 int isPerspMode = 1;
@@ -45,9 +45,9 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods) {
             isSwitched = 1;
             break;
         case GLFW_KEY_SPACE:
-            spaceBarPressed++;
-            if (spaceBarPressed > 1)
-                spaceBarPressed = 0;
+            isSpaceBarPressed++;
+            if (isSpaceBarPressed > 1)
+                isSpaceBarPressed = 0;
             break;
         case GLFW_KEY_TAB:
             exit(0);

@@ -22,10 +22,12 @@ public:
     glm::vec3 partAcc;  //Acceleration
     glm::vec3 constAcc; //Const acc to apply
     glm::vec3 forceAccum; //Active forces
+    Particle* partNext;
 
     Particle();
     Particle(glm::vec3 startPos);
     //Initialize particle variables
+    void connectNextParticle(Particle *pNextParticle);
     void initParticle(int projType, glm::vec3 startPos);
 
     //Despawn the particle
@@ -139,24 +141,26 @@ public:
 
 
 
+
+//Handles contacts
 class ParticleContact {
 public:
     Particle* part[2];          //2 Particles
-    float k;                    //Adjust bounciness
+    float k, elasticity;      //Adjust bounciness (<1 inelastic, >1 elastic)
     glm::vec3 contactNormal;    //Direction
     float deltaTime;
 
     ParticleContact();
     int checkCollision();
 
-    void resolve(float deltaTime, Particle* part0, Particle* part1);
+    void resolve(Particle* part0, Particle* part1);
     void resolveVelocity();
-    float calculateSeparatingVelocity();
 
     float penetrationDepth;
     void resolveInterpenetration();
 };
 
+//Links particles with contact
 class ParticleLinker {
 public:
     ParticleLinker();
@@ -166,40 +170,45 @@ public:
     virtual unsigned fillContact(ParticleContact *contact);
 };
 
-class Rod : public ParticleLinker {
-public:
-    Rod(Particle* part0, Particle* part1);
-    unsigned fillContact(ParticleContact* contact);
-};
-
-/*
-class ParticleContactGenerator {
-public:
-    virtual unsigned int addContact(ParticleContact* contact, unsigned int limit);
-};*/
-
-class ParticleWorld {
-public:
-    ForceRegistry registryGeneral;  //Links forces and particles
-
-
-
-
-
-
-
-    struct ParticleRegistration {   //Register the particles
-        Particle* part;
-        ParticleRegistration* partNext;
+    //Rod contact
+    class Rod : public ParticleLinker {
+    public:
+        Rod();
+        Rod(Particle* part0, Particle* part1);
+        unsigned fillContact(ParticleContact* contact);
     };
 
-    ParticleRegistration* partHead; //Head/starting particle
 
-    void startFrame();  //Clear force accumulated
-    void integrate(float deltaTime);
-    void runPhysics(float deltaTime);
-    
-    //void runPhysics();
 
-    ParticleWorld(int shots);    //CONSTRUCTOR
+
+//Logic system and handles all particles
+class ParticleWorld {
+public:
+    Particle* massParticlesHead;    //The start of mass particles and generally all particles
+    Particle* bulletParticlesHead;  //The head pointing to bullets start
+
+    //FORCES
+    ForceRegistry registryGeneral;  //Links forces and particles
+    GravityForce gravityGeneral;
+    ConstantForce constantGeneral;
+    DragForce dragGeneral = DragForce(0.9f, 0.1f);   //Drag forces calculator ~ Higher constants = More drag
+    //CentripetalForce centripetalGeneral = CentripetalForce(ORIGIN);
+
+    //CONTACTS
+    ParticleContact contactGeneral;     //For any mass/bullet
+    ParticleContact contactRods;        //Specifically for rods only
+    Rod rods[MAX_CUBE_POINTS - 1];      //Rods
+
+
+
+    ParticleWorld(Particle* partHead);        //Constructor
+        void createRods();
+
+    //ParticleRegistration* partHead; //Head/starting particle
+
+    void startFrame();                  //Clear force accumulated
+    void checkInput(int* isFired, int projectileType, int* isSpaceBarPressed);  //Handles spawning and control inputs
+    void runPhysics(float deltaTime);                   //Physics updates
+        void accumAllForces(Particle* selectedPart);    //Adds forces and sends to force registry
+        void resolveContacts();                         //Resolves collision and interpenetration
 };

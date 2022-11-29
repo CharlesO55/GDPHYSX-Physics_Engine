@@ -24,6 +24,7 @@
 #include "Includes/physics_engine.h"
 
 
+
 class Model {
 public:
     Particle* particleLink;
@@ -64,8 +65,62 @@ int main(void)
     GLFWwindow* window;
     srand((unsigned) time(NULL));        //RNG seed
 
+    
+
+    //THE MASS AGGREGATE MODELS
+    //float cubeSideHalfLength = 5.f;
+    //glm::vec3 cubeOrigin 
+    //cubeOrigin += glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
+
+    Particle massParticle[MAX_CUBE_POINTS] = {
+        Particle(cubePoints[0]),
+        Particle(cubePoints[1]),
+        Particle(cubePoints[2]),
+        Particle(cubePoints[3]),
+        Particle(cubePoints[4]),
+        Particle(cubePoints[5]),
+        Particle(cubePoints[6]),
+        Particle(cubePoints[7])
+    };
+
+
+    //THE BULLETS
     Particle bulletParticle[MAX_PARTICLES];     //Array of basic Particles
-    //INITIALIZE AND LOAD OBJ FILES
+    
+
+    //LINK LIST THE DIFFERENT PARTICLES
+    for (int i = 0; i <= MAX_CUBE_POINTS - 2; i++) {                  //Start with the mass particles
+        massParticle[i].connectNextParticle(&(massParticle[i + 1]));  //Ignore connecting last particle [7] since its next is null for now
+    }
+    massParticle[7].connectNextParticle(&bulletParticle[0]);    //Link the last mass [7] and 1st bullet
+    for (int i = 0; i <= MAX_PARTICLES - 2; i++) {                        //Start with the mass particles
+        bulletParticle[i].connectNextParticle(&(bulletParticle[i + 1]));  //Leave last bullet as unconnected
+    }
+
+    Particle* partHead = &(massParticle[0]);        //Note the mass as the starting head
+    Particle* partCurr = partHead;                  //Current node to head
+    
+    /*
+      4--------6
+     /|       /|
+    2--------0 |
+    | |      | |
+    | 5--------7
+    |/       |/
+    1--------3
+    */
+    //INITIALIZE MODELS AND POINT IT TO A PARTICLE FOR GETTING ITS POSITION LATER
+    Model massAggregateModels[MAX_CUBE_POINTS] = {   //Eight cube points
+        Model("3D/planet.obj", &(massParticle[0])),
+        Model("3D/planet.obj", &(massParticle[1])),
+        Model("3D/planet.obj", &(massParticle[2])),
+        Model("3D/planet.obj", &(massParticle[3])),
+        Model("3D/planet.obj", &(massParticle[4])),
+        Model("3D/planet.obj", &(massParticle[5])),
+        Model("3D/planet.obj", &(massParticle[6])),
+        Model("3D/planet.obj", &(massParticle[7]))
+    };
+
     Model bullets[MAX_PARTICLES] = {
         Model("3D/planet.obj", &(bulletParticle[0])),   //1
         Model("3D/planet.obj", &(bulletParticle[1])),   //2
@@ -76,45 +131,12 @@ int main(void)
         Model("3D/planet.obj", &(bulletParticle[6])),   //7
         Model("3D/planet.obj", &(bulletParticle[7]))    //Last model
     };
-
-    //THE MASS AGGREGATE MODELS
-    float cubeSideHalfLength = 5.f;
-    glm::vec3 cubeOrigin = { 10.f, 0.f, 0.f };
-    cubeOrigin += glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
-
-    Particle massParticle[8] = {
-                //FRONT
-        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),     //0 Top Left
-        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),    //1 Bot Left
-        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),    //2 Top Right
-        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),   //3 Bot Right
-        //BACK
-        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),     //4 Top Left
-        Particle(cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //5 Bot Left
-        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //6 Top Right
-        Particle(cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength))   //7 Bot Right
-    };
-    /*
-      4--------6
-     /|       /|
-    0--------2 |
-    | |      | |
-    | 5--------7
-    |/       |/
-    1--------3
-    */
-
-    Model massAggregateModels[8] = {   //Eight cube points
-        Model("3D/planet.obj", &(massParticle[0])),
-        Model("3D/planet.obj", &(massParticle[1])),
-        Model("3D/planet.obj", &(massParticle[2])),
-        Model("3D/planet.obj", &(massParticle[3])),
-        Model("3D/planet.obj", &(massParticle[4])),
-        Model("3D/planet.obj", &(massParticle[5])),
-        Model("3D/planet.obj", &(massParticle[6])),
-        Model("3D/planet.obj", &(massParticle[7]))
-    };
     
+
+
+
+
+
     /*
     Model playerShip;
     playerShip.loadObj("3D/ship2.obj");
@@ -341,58 +363,10 @@ int main(void)
 
     
 
-    
-
-
-    //PARTICLE_HW(2/3)
-    
-
-    
-    ForceRegistry registryGeneral;  //Links forces and particles
-
-    //Force Generators
-    GravityForce gravityGeneral;        //Gravity force calculator
-    ConstantForce constantGeneral;      //Constant forces calculator
-    DragForce dragGeneral(0.9f, 0.1f);   //Drag forces calculator ~ Higher constants = More drag
-
-
-    CentripetalForce centripetalGeneral(ORIGIN);
-
-
-    AnchoredSpring anchorS1(ORIGIN);    //Anchored spring calculator. Anchored to origin
-    BasicSpring basicS1;
-    ElasticBungee elasticS1;
-    //PARTICLE_HW(2/3) END
-
     ShaderPackage packedShader;
-    // Old fireworks HW
-    //Coil coilParticle[MAX_PARTICLES];         //Array of fireworks/coils
-    //glm::vec3 detonationPos(0.f, 0.f, 0.f);   //Only 1 copy for now. Good for 1 firework only
-    //int phase = 2;   //Phase of the fireworks. (1-Launch, 2-Spread)
 
-    
-    ParticleContact contactGeneral;
-    ParticleContact rodContact;
-    Rod rod[8] = {
-        Rod(&(massParticle[2]), &(massParticle[0])),
-        Rod(&(massParticle[2]), &(massParticle[6])),
-        Rod(&(massParticle[2]), &(massParticle[3])),
-        Rod(&(massParticle[2]), &(massParticle[5])),
-        Rod(&(massParticle[2]), &(massParticle[4])),
-        Rod(&(massParticle[2]), &(massParticle[2])),
-        Rod(&(massParticle[2]), &(massParticle[7])),
-        Rod(&(massParticle[2]), &(massParticle[1]))
-    };
- /*
-  4--------6          4--------6
- /|       /|         /|       b|
-0--------2 |        0----a---2 |
-| |      | |        | |      | |
-| 5--------7        | 5------c-7
-|/       |/         |/       |/
-1--------3          1--------3
-*/
-    //ParticleWorld partWorld(projectileHead);
+
+    ParticleWorld particleWorld(partHead);
     
     while (!glfwWindowShouldClose(window))  //Main loop for each frame
     {
@@ -443,23 +417,35 @@ int main(void)
 
 
             //PARTICLE HW(3/x)
-            if (isFired) {
-                for (int i = 0; i < MAX_PARTICLES; i++) {
-                    if (bulletParticle[i].partType == INACTIVE) {
-                        bulletParticle[i].initParticle(projectileType, ORIGIN);
-                        break;
-                    }
-                }
-                isFired = INACTIVE;
+            particleWorld.startFrame();
+            particleWorld.checkInput(&isFired, projectileType, &isSpaceBarPressed);
+            particleWorld.runPhysics(deltaTime);
+            //PARTICLE HW(3/x) END
+
+
+            //UPDATE MODELS
+            //Use normal arrays. Linked list can be taxing
+            for (int i = 0; i < MAX_CUBE_POINTS; i++) {
+                massAggregateModels[i].translate();
+            }
+            for (int i = 0; i < MAX_PARTICLES; i++) {
+                if (bullets[i].particleLink->partType != INACTIVE) { bullets[i].translate(); }
             }
 
 
-           
-            /*
-            if (isFired) {
-                massParticle[1].partVel += glm::vec3(0.f, 5.f, 0.f);
-                isFired = INACTIVE;
+
+            
+
+            
+            
+            /*//FIREWORK SPAWNER
+            if (coilParticle[0].partType == INACTIVE  && projectileType == FIREWORK) {     //If parent detonated and still hasn't reached final explosion chain
+                phase++;
+                coilParticle[0].initParticle(COIL, bullets[0].scale, currTime);
+                coilParticle[0].prepStage(detonationPos, phase);
+                //Spawn more using coilParticle[coilParticle[0].payload]
             }*/
+            
             /*
             //Force updates
             switch (projectileType) {
@@ -486,45 +472,6 @@ int main(void)
             default:
                 std::cout << "NO SPRING SELECTED" << std::endl;
             }*/
-
-            
-            
-            
-            for (int i = 0; i < 8; i++) {
-                registryGeneral.add(&(massParticle[i]), &dragGeneral);
-                massParticle[i].updateMotion(deltaTime);
-                massAggregateModels[i].translate();
-               
-               if (bullets[i].particleLink->partType != INACTIVE) {
-                   registryGeneral.add(&(bulletParticle[i]), &constantGeneral);
-                   registryGeneral.add(&(bulletParticle[i]), &gravityGeneral);     //Gravity toggle in particle.h
-                   registryGeneral.add(&(bulletParticle[i]), &dragGeneral);        //Drag toggled on for all springs
-                   
-                   
-                   bulletParticle[i].updateMotion(deltaTime);
-                   bullets[i].translate();
-               }
-
-               contactGeneral.resolve(deltaTime, &(massParticle[2]), &bulletParticle[i]);     
-               //MOVE RODS
-               if (rod[i].fillContact(&rodContact)) {
-                   rodContact.resolveInterpenetration();    //Doesn't actually do anything. No penetration depth is passed (disabled in method)
-               }
-            }
-
-            
-            //contactGeneral.resolve(deltaTime, &(massParticle[0]), &(massParticle[1]));
-            
-            
-            
-            /*//FIREWORK SPAWNER
-            if (coilParticle[0].partType == INACTIVE  && projectileType == FIREWORK) {     //If parent detonated and still hasn't reached final explosion chain
-                phase++;
-                coilParticle[0].initParticle(COIL, bullets[0].scale, currTime);
-                coilParticle[0].prepStage(detonationPos, phase);
-                //Spawn more using coilParticle[coilParticle[0].payload]
-            }*/
-            
         }
 
 

@@ -32,9 +32,28 @@
 #define ACTIVE 1
 #define SPAWN 1
 #define MAX_PARTICLES 8
+#define MAX_CUBE_POINTS 8
 //#define MAX_SPRINGS 2
 
 static glm::vec3 ORIGIN = glm::vec3(0.f, 0.f, 0.f);
+
+
+
+static float cubeSideHalfLength = 5.f;
+static glm::vec3 cubeOrigin = glm::vec3(10.f, 0.f, 0.f) + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
+
+static glm::vec3 cubePoints[MAX_CUBE_POINTS] = {
+    //FRONT
+    glm::vec3(cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),    //0 Top Right
+    glm::vec3(cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),    //1 Bot Left
+    glm::vec3(cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f - cubeSideHalfLength)),     //2 Top Left
+    glm::vec3(cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f - cubeSideHalfLength)),   //3 Bot Right
+    //BACK
+    glm::vec3(cubeOrigin + glm::vec3(cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),     //4 Top Left
+    glm::vec3(cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //5 Bot Left
+    glm::vec3(cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //6 Top Right
+    glm::vec3(cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength))   //7 Bot Right
+};
 
 /*
 //Preset values for damp, v, a
