@@ -56,6 +56,7 @@ public:
     void revolve(float radius);
     void rotate();
     void translate(/*glm::vec3 inputPos*/);
+    void setTransformMatrix();  //Set the transform matrix from the linked particle
 };
 
 
@@ -71,7 +72,7 @@ int main(void)
     //float cubeSideHalfLength = 5.f;
     //glm::vec3 cubeOrigin 
     //cubeOrigin += glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
-
+    
     Particle massParticle[MAX_CUBE_POINTS] = {
         Particle(cubePoints[0]),
         Particle(cubePoints[1]),
@@ -98,8 +99,10 @@ int main(void)
     }
 
     Particle* partHead = &(massParticle[0]);        //Note the mass as the starting head
-    Particle* partCurr = partHead;                  //Current node to head
+    //Particle* partCurr = partHead;                  //Current node to head
     
+    RigidBody rbCube(glm::vec3(20.f, -cos(glm::radians(45.f))*8, cos(glm::radians(45.f))*8), massParticle); //Origin of the cube. Doesn't need a model
+
     /*
       4--------6
      /|       /|
@@ -225,7 +228,7 @@ int main(void)
         return -1;
 
 
-    window = glfwCreateWindow((int) SCREEN_WIDTH, (int) SCREEN_HEIGHT, "Charles Mathew D. Ong", NULL, NULL);
+    window = glfwCreateWindow((int) SCREEN_WIDTH, (int) SCREEN_HEIGHT, "Ong, Galura - PHASE 2", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -366,7 +369,7 @@ int main(void)
     ShaderPackage packedShader;
 
 
-    ParticleWorld particleWorld(partHead);
+    ParticleWorld particleWorld(partHead, &rbCube);
     
     while (!glfwWindowShouldClose(window))  //Main loop for each frame
     {
@@ -426,10 +429,14 @@ int main(void)
             //UPDATE MODELS
             //Use normal arrays. Linked list can be taxing
             for (int i = 0; i < MAX_CUBE_POINTS; i++) {
-                massAggregateModels[i].translate();
+                //massAggregateModels[i].translate();
+                massAggregateModels[i].setTransformMatrix();
             }
             for (int i = 0; i < MAX_PARTICLES; i++) {
-                if (bullets[i].particleLink->partType != INACTIVE) { bullets[i].translate(); }
+                if (bullets[i].particleLink->partType != INACTIVE) {
+                    /*bullets[i].translate();*/ 
+                    bullets[i].setTransformMatrix();    //Get the bullet particle's transform matrix
+                }
             }
 
 
@@ -935,4 +942,11 @@ void Model::translate(/*glm::vec3 inputPos*/) {
         identity,
         inputPos);
     */
+}
+
+void Model::setTransformMatrix() {
+    //Copy the existing particle's transform matrix
+    if (particleLink != NULL) {
+        transform = particleLink->transformMatrix;
+    }
 }

@@ -22,7 +22,10 @@ public:
     glm::vec3 partAcc;  //Acceleration
     glm::vec3 constAcc; //Const acc to apply
     glm::vec3 forceAccum; //Active forces
-    Particle* partNext;
+    Particle* partNext;     //Next particle in a linked list (if any)
+
+    glm::mat4 transformMatrix;  //Will be used/copied by the model class
+    glm::vec3 orientation;
 
     Particle();
     Particle(glm::vec3 startPos);
@@ -34,15 +37,39 @@ public:
     void despawnParticle(float deltaTime);
 
     //Update position
-    void updateMotion(float deltaTime);
+    virtual void updateMotion(float deltaTime);
     void addForceAccum(glm::vec3 newForce);
 
     //Reset forces accumulated
     void clearForceAccum();
+
+    //Calculate the transform matrix. Not rigidbody exclusive since model class will also the transform matrix.
+    void calculateDerivedData();
+    void calcTranslateMatrix();
+    void calcRotateMatrix();
+    glm::mat4 rotMatrix;
+    glm::mat4 transMatrix;
 };
 
 
+    class RigidBody : public Particle {
+    public:
+        float fLength = 8.f;        //Distance/size of the cube
+        Particle* cubeParticles[8]; //8 particles to serve as contact points. Only collision with particle is registered.
 
+        glm::mat3 intertiaTensor;
+        float angularVel;   //Angular vel. Scalar value of speed of rotation
+
+        glm::vec3 torque;
+        glm::vec3 torqueAccum;
+
+        RigidBody(glm::vec3 originPos, Particle massParticle[8]);   //Constructor
+
+        void clearTorqueAccum();
+        void updateMotion(float deltaTime); //Calc additional rotation stuff
+        void calcRbParticles();     //Makes sure the particles retain the cube position
+        //Useful other functions from particle class: calculateDerivedData, calcTranslateMatrix, calcRotateMatrix
+    };
 
 
 
@@ -149,11 +176,12 @@ public:
     float k, elasticity;      //Adjust bounciness (<1 inelastic, >1 elastic)
     glm::vec3 contactNormal;    //Direction
     float deltaTime;
+    RigidBody* rbCube;
 
     ParticleContact();
     int checkCollision();
 
-    void resolve(Particle* part0, Particle* part1);
+    void resolve(Particle* part0, Particle* part1, RigidBody* rbCube);
     void resolveVelocity();
 
     float penetrationDepth;
@@ -171,12 +199,12 @@ public:
 };
 
     //Rod contact
-    class Rod : public ParticleLinker {
+    /*class Rod : public ParticleLinker {
     public:
         Rod();
         Rod(Particle* part0, Particle* part1);
         unsigned fillContact(ParticleContact* contact);
-    };
+    };*/
 
 
 
@@ -186,6 +214,7 @@ class ParticleWorld {
 public:
     Particle* massParticlesHead;    //The start of mass particles and generally all particles
     Particle* bulletParticlesHead;  //The head pointing to bullets start
+    RigidBody* rbCube;
 
     //FORCES
     ForceRegistry registryGeneral;  //Links forces and particles
@@ -196,13 +225,13 @@ public:
 
     //CONTACTS
     ParticleContact contactGeneral;     //For any mass/bullet
-    ParticleContact contactRods;        //Specifically for rods only
-    Rod rods[MAX_CUBE_POINTS - 1];      //Rods
+    //ParticleContact contactRods;        //Specifically for rods only
+    //Rod rods[MAX_CUBE_POINTS - 1];      //Rods
 
+    
 
-
-    ParticleWorld(Particle* partHead);        //Constructor
-        void createRods();
+    ParticleWorld(Particle* partHead, RigidBody* rbCube);        //Constructor
+        //void createRods();
 
     //ParticleRegistration* partHead; //Head/starting particle
 

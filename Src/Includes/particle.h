@@ -33,6 +33,8 @@
 #define SPAWN 1
 #define MAX_PARTICLES 8
 #define MAX_CUBE_POINTS 8
+
+#define DEFAULT_SCALE 10.f
 //#define MAX_SPRINGS 2
 
 static glm::vec3 ORIGIN = glm::vec3(0.f, 0.f, 0.f);

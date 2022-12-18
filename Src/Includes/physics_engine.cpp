@@ -4,7 +4,7 @@
 
 //PARTICLE
 Particle::Particle() {
-    scale = 10.f;     //Default To scale by
+    scale = DEFAULT_SCALE;     //Default To scale by
     mass = 1.f;
     radius = 1.f;
     partType = INACTIVE;                //Type of the particle
@@ -18,17 +18,105 @@ Particle::Particle() {
     partAcc = { 0.f, 0.f, 0.f };
     forceAccum = { 0.f, 0.f, 0.f };
     partNext = NULL;
+    orientation = { 0.f, 0.f, 0.f };
 }
 Particle::Particle(glm::vec3 startPos) {
-    scale = 10.f;
+    scale = DEFAULT_SCALE;
+    radius = 1.f;
+    despawnTime = 0.f; //despawnTime is its lifespan
+    forceAccum = { 0.f, 0.f, 0.f };
+    partAcc = { 0.f, 0.f, 0.f };
+    partNext = NULL;
+    orientation = { 0.f, 0.f, 0.f };
+
+    initParticle(STATIONARY, startPos);
+}
+
+RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
+    //The origin particle's basic properties
+    scale = DEFAULT_SCALE;
     radius = 1.f;
     despawnTime = 0.f; //despawnTime is its lifespan
     forceAccum = { 0.f, 0.f, 0.f };
     partAcc = { 0.f, 0.f, 0.f };
     partNext = NULL;
 
-    initParticle(STATIONARY, startPos);
+    torque = { 0.f, 0.f, 0.f };
+    torqueAccum = { 0.f, 0.f, 0.f };
+    angularVel = 0.f;
+    orientation = { 0.f, 0.f, 0.f };
+
+    initParticle(STATIONARY, originPos);
+
+    //Connect the particles with the rigid body
+    int i;
+    for (i = 0; i < MAX_CUBE_POINTS; i++) {
+        cubeParticles[i] = &massParticle[i];
+    }
+    calcRbParticles();
 }
+
+    void RigidBody::clearTorqueAccum() {
+        torqueAccum = { 0.f, 0.f, 0.f };
+    }
+
+
+    void RigidBody::updateMotion(float deltaTime) {
+        despawnParticle(deltaTime);     //Attempt to despawn particle and update its lifetime
+        if (!partType || !mass) {
+            return;     //End when particle isn't active or is unmovable
+        }
+
+        
+        //LINEAR MOTION
+        partAcc = (1 / mass) * forceAccum;      //Calculate acc from total forces
+        partVel += partAcc * deltaTime;         //Add to velocity
+        //partVel *= 0.99f;      //Replacd by dragForce
+        partPos += partVel * deltaTime * scale;  //Update position
+        
+
+        //ROTATIONAL MOTION
+        //angularVel += torqueAccum * deltaTime;
+        angularVel *= 0.95f;
+        orientation += glm::vec3(0.f, angularVel * deltaTime * scale, 0.f);
+    }
+
+
+
+
+
+    //Calculates the particles position with respect to RigidBody's origin position and orientation
+    void RigidBody::calcRbParticles() { 
+        
+        //CREATE THE LOCAL SPACE MATRIX
+        for (int i = 0; i < 8; i++) {
+            cubeParticles[i]->partPos = this->partPos;          //Particle set to local origin
+            cubeParticles[i]->orientation = this->orientation;  //Particle copy the rigidbody's orientation
+            cubeParticles[i]->calculateDerivedData();           //Sets the transform matrix from the calculated transMatrix and rotateMatrix
+        }
+
+        
+        //TRANSLATE TO NEW POSITION RESPECTIVE OF THE LOCAL SPACE
+        float distance = cos(glm::radians(45.f)) * fLength;     //Apply distance 
+        cubeParticles[0]->partPos = glm::vec3(-distance, distance, -distance);
+        cubeParticles[1]->partPos = glm::vec3(distance, -distance, -distance);
+        cubeParticles[2]->partPos = glm::vec3(distance, distance, -distance);
+        cubeParticles[3]->partPos = glm::vec3(-distance, -distance, -distance);
+        cubeParticles[4]->partPos = glm::vec3(distance, distance, distance);
+        cubeParticles[5]->partPos = glm::vec3(distance, -distance, distance);
+        cubeParticles[6]->partPos = glm::vec3(-distance, distance, distance);
+        cubeParticles[7]->partPos = glm::vec3(-distance, -distance, distance);
+
+
+        for (int i = 0; i < 8; i++) {
+            cubeParticles[i]->calcTranslateMatrix();    //Generate a new transMatrix
+            cubeParticles[i]->transformMatrix *= cubeParticles[i]->transMatrix; //Apply it to the existing local transform matrix
+        }
+    }
+
+
+
+
 
     void Particle::connectNextParticle(Particle* pNextParticle) {
         this->partNext = pNextParticle;
@@ -45,7 +133,7 @@ Particle::Particle(glm::vec3 startPos) {
 
         switch (projType) {
         case STATIONARY:
-            despawnTime = 10000.f;
+            despawnTime = 1000.f;
             partVel = { 0.f, 0.f, 0.f };
             constAcc = { 0.f, 0.f, 0.f };
             isGravityActive = INACTIVE;
@@ -147,6 +235,35 @@ Particle::Particle(glm::vec3 startPos) {
         forceAccum = { 0.f, 0.f, 0.f };
     }
 
+    //Calculate the transform matrix
+    void Particle::calculateDerivedData() {
+        transformMatrix = glm::mat3(1.0f);
+        
+        calcTranslateMatrix();
+        calcRotateMatrix();
+
+        transformMatrix = transMatrix * rotMatrix;  //Translate to local then rotate
+        return;
+    }
+
+    void Particle::calcTranslateMatrix() {
+        glm::mat4 identity = glm::mat3(1.0f);
+        transMatrix = glm::translate(identity, partPos);    //Matrix with particle position
+    }
+
+    void Particle::calcRotateMatrix() {
+        glm::mat4 identity = glm::mat3(1.0f);
+
+        rotMatrix = glm::rotate(identity,
+            glm::radians(orientation.x),
+            glm::vec3(1, 0, 0));
+        rotMatrix = glm::rotate(rotMatrix,
+            glm::radians(orientation.y),
+            glm::vec3(0, 1, 0));
+        rotMatrix = glm::rotate(rotMatrix,
+            glm::radians(orientation.z),
+            glm::vec3(0, 0, 1));
+    }
 
 
     
@@ -299,12 +416,13 @@ ParticleContact::ParticleContact() {
     contactNormal = { 0.f, 0.f, 0.f };      //Direction
     deltaTime = 0.f;
     penetrationDepth = 1.f;
+    rbCube = NULL;
 }
-    void ParticleContact::resolve(Particle* part0, Particle* part1) {
+    void ParticleContact::resolve(Particle* part0, Particle* part1, RigidBody* rbCube) {
         this->deltaTime = deltaTime;    //Save the time
         this->part[0] = part0;
         this->part[1] = part1;
-        
+        this->rbCube = rbCube;
 
 
 
@@ -313,36 +431,46 @@ ParticleContact::ParticleContact() {
             if (part[1]) {
                 contactNormal = glm::normalize(part[0]->partPos - part[1]->partPos);
             }
-            resolveVelocity();         
+            resolveVelocity();
             resolveInterpenetration();
+            //Despawn the projectile
+            part[1]->partType = INACTIVE;
+            part[1]->despawnParticle(1000);
         }
     }
         
         void ParticleContact::resolveVelocity() {
             //Check if they're already separating
             
-            float sepVel = glm::dot((part[0]->partVel - part[1]->partVel), contactNormal);
+            float sepVel = glm::dot((rbCube->partVel/*part[0]->partVel*/ - part[1]->partVel), contactNormal) - rbCube->fLength;
             if (sepVel > 0) {
                 return;
             }
 
             //Start finding new velocities
             float impulse = (1.f + k) * -sepVel;
-            impulse /= (1 / part[0]->mass) + (1 / part[1]->mass);   //Make it proportional to their masses
+            impulse /= ( 1 / (part[0]->mass * 8)) + (1 / part[1]->mass);   //Make it proportional to their masses
 
             //Directly edit vel
-            part[0]->partVel += contactNormal * impulse / part[0]->mass;
+            //part[0]->partVel += contactNormal * impulse / part[0]->mass;
+            rbCube->partVel -= contactNormal * impulse / (part[0]->mass * 8);
+            rbCube->angularVel -= impulse / part[0]->mass;
             part[1]->partVel -= contactNormal * impulse * elasticity / part[1]->mass;   //Need additional amplifier since adding -vel to curr will just negate bullet's vel
         }
 
 
+
         //CHECKS COLLISION AND DEPTH
         int ParticleContact::checkCollision() {
-            if (part[1]) {
+            float posDistance = glm::length(rbCube->partPos - part[1]->partPos);
+            float radSum =  rbCube->fLength + part[1]->radius * 3;
+            penetrationDepth = posDistance - radSum;
+
+            /*if (part[1]) {
                 float posDistance = glm::length(part[0]->partPos - part[1]->partPos);
                 float radSum = part[0]->radius + part[1]->radius;
                 penetrationDepth = posDistance - radSum;    //Actual distance between particles - Min distance between circles
-            }
+            }*/
             if (penetrationDepth <= 0) {
                 return 1;
             }
@@ -377,7 +505,7 @@ ParticleContact::ParticleContact() {
             currLength = 0.f;
             contactNormal = { 0.f,0.f,0.f };
         }
-
+            /*
             Rod::Rod() {
                 part[0] = NULL; 
             }
@@ -387,14 +515,14 @@ ParticleContact::ParticleContact() {
                 this->lengthLimit = glm::length(part[0]->partPos - part[1]->partPos);       //Remember the distance between each part
                 this->contactNormal = glm::normalize(part[0]->partPos - part[1]->partPos);  //Remember the between angle each part
                 currLength = 0.f;
-            }
+            }*/
                 unsigned ParticleLinker::fillContact(ParticleContact* contact) {
                     std::cout << "NO CONTACT PARTICLE LINKER\n";
                     return 0;
                 }
         
 
-            unsigned Rod::fillContact(ParticleContact* contact) {
+            /*unsigned Rod::fillContact(ParticleContact* contact) {
                 currLength = glm::length(part[0]->partPos - part[1]->partPos);
                 if (currLength == lengthLimit) {
                     return 0;
@@ -406,7 +534,7 @@ ParticleContact::ParticleContact() {
 
                 contact->part[0] = part[0];
                 contact->part[1] = part[1];
-                contact->k = 0.f;
+                contact->k = 0.f;*/
                 
                 /*
                 //contactNormal = glm::normalize(part[0]->partPos - part[1]->partPos);    //If need current angle
@@ -421,8 +549,8 @@ ParticleContact::ParticleContact() {
                 }*/
                 
 
-                return 1;
-            }
+              //  return 1;
+            //}
         
 
 
@@ -434,7 +562,8 @@ ParticleContact::ParticleContact() {
 //PARTICLE WORLD
 
 //CONSTRUCTOR MARKS THE HEADS
-ParticleWorld::ParticleWorld(Particle* partHead) {
+ParticleWorld::ParticleWorld(Particle* partHead, RigidBody* rbCube) {
+    this->rbCube = rbCube;
     //MARK THE HEADS
     massParticlesHead = partHead;
     bulletParticlesHead = partHead;
@@ -443,11 +572,11 @@ ParticleWorld::ParticleWorld(Particle* partHead) {
         bulletParticlesHead = bulletParticlesHead->partNext;
     }
 
-    createRods();    
+    //createRods();    
 }
     
     //CREATE RODS
-    void ParticleWorld::createRods() {
+    /*void ParticleWorld::createRods() {
         Particle* currPart = massParticlesHead;
 /*
       4--------6          4--------6
@@ -458,16 +587,18 @@ ParticleWorld::ParticleWorld(Particle* partHead) {
     |/       |/         |/       |/
     1--------3          1--------3
 */
-        int i = 0;
+    /*    int i = 0;
         while (i < MAX_CUBE_POINTS - 1) {
             currPart = currPart->partNext;
             rods[i] = Rod(massParticlesHead, currPart);
             i++;
         }
-    }
-
+    }*/
+    
     //CLEAR ALL ACCUMULATED FORCES
     void ParticleWorld::startFrame() {
+        rbCube->clearForceAccum();
+        rbCube->clearTorqueAccum();
         Particle* currPart = this->massParticlesHead;      //Start at the head of all particles
 
         while (currPart) {  //While the current particle is existing/not null
@@ -496,14 +627,16 @@ ParticleWorld::ParticleWorld(Particle* partHead) {
 
         //RESET POSITION OF CUBE PARTICLES
         if (*isSpaceBarPressed) {
-            Particle* currPart = massParticlesHead;
+            rbCube->partPos = glm::vec3(20.f, -cos(glm::radians(45.f)) * 8, cos(glm::radians(45.f)) * 8);
+            rbCube->orientation = { 0.f, 0.f, 0.f };
+            /*Particle* currPart = massParticlesHead;
             int i = 0;
 
             while (currPart->partType == STATIONARY) {
                 currPart->partPos = cubePoints[i];
                 currPart = currPart->partNext;
                 i++;
-            }
+            }*/
         }
 
         *isFired = INACTIVE;
@@ -515,15 +648,24 @@ ParticleWorld::ParticleWorld(Particle* partHead) {
     //CALC PARTICLE ACC, VEL, AND POS
     void ParticleWorld::runPhysics(float deltaTime) {
         //Integrate all particles
-        Particle* currPart = massParticlesHead;
+        Particle* currPart = /*bulletParticlesHead;*/massParticlesHead;
+        
+        //CALCULATE THE BULLETS
         while (currPart != NULL)
         {
             if (currPart->partType != INACTIVE) {
                 accumAllForces(currPart);
                 currPart->updateMotion(deltaTime);
+                currPart->calculateDerivedData();
             }
             currPart = currPart->partNext;
         }
+        
+        //CALCULATE THE RIGIDBODY PARTICLES
+        accumAllForces(rbCube);
+        rbCube->updateMotion(deltaTime);
+        rbCube->calcRbParticles();
+
         resolveContacts();
         free(currPart);
     }
@@ -542,14 +684,14 @@ ParticleWorld::ParticleWorld(Particle* partHead) {
             while (bullCurr != NULL) {
                 if (bullCurr->partType != INACTIVE) {
 
-                    //[FIX] FIND A BETTER WAY TO PROCESS COLLISIONS. LOOPING THROUGH EVERY MASS-BULLET PAIR IS IMPRACTICAL
+                    //CHECK THE PARTICLES FOR COLLISION
                     Particle* massCurr = massParticlesHead;
                     while (massCurr->partType == STATIONARY) {
-                        contactGeneral.resolve(massCurr, bullCurr);
+                        contactGeneral.resolve(massCurr, bullCurr, rbCube);
                         massCurr = massCurr->partNext;
                     }
                     
-                    //[BASIC VER] ONLY PROCESS FOR COLLISIONS OF ANY BULLET WITH TOP RIGHT CUBE PARTICLE
+                    //[BASIC VER] PROCESSES COLLISIONS OF ANY BULLET COLLIDING WITH TOP RIGHT CUBE PARTICLE ONLY
                     //    contactGeneral.resolve(massParticlesHead, bullCurr);
                 }
                 bullCurr = bullCurr->partNext;
@@ -558,13 +700,13 @@ ParticleWorld::ParticleWorld(Particle* partHead) {
 
 
 
-            //RESOLVE RODS
+            /*//RESOLVE RODS
             if (massParticlesHead->partVel == glm::vec3(0.f, 0.f, 0.f)) {
                 return; //If not moving. Then assume no need to solve rods interpenetration
             }
             for (int i = 0; i < MAX_CUBE_POINTS - 1; i++) {
-                rods[i].fillContact(&contactRods);
-            }
+                rods[i].fillContact(&contactRods);  //fillContact will check and call resolveInterpenetration
+            }*/
         }
     
 

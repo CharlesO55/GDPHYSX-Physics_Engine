@@ -1,4 +1,16 @@
-HOW TO RENDER STUFF:
+I. CONTROLS:
+	1 - Bullet
+	2 - Artillery
+	3 - Fireball
+	4 - Laser
+	Click - Fires selected projectile type
+	Space - Resets cube position (excluding velocity)
+
+
+
+
+
+II. HOW TO RENDER STUFF:
 
 Follow the order
 1. Create a model with constructor: Model NAME(ADDRESS OF OBJ FILE, STARTING POS)
