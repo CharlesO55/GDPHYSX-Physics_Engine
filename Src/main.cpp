@@ -22,7 +22,11 @@
 #include "controls.h"       //Controls for keyboard and mouse
 #include "Includes/graphics_engine.h"   //Light, Shader, Camera, Player
 #include "Includes/physics_engine.h"
+#include "Includes/particle_world.h"
 
+/*MAIN
+*   Calls particle world every frame. Particles must also be constructed here since model class can't be exported to its own header/cpp file
+*/
 
 
 class Model {
@@ -67,6 +71,11 @@ int main(void)
     srand((unsigned) time(NULL));        //RNG seed
 
     
+    /*
+    * GENERATE PARTICLES HERE AND LINK THEM TO MODELS
+    */
+
+
 
     //THE MASS AGGREGATE MODELS
     //float cubeSideHalfLength = 5.f;
@@ -74,14 +83,14 @@ int main(void)
     //cubeOrigin += glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
     
     Particle massParticle[MAX_CUBE_POINTS] = {
-        Particle(cubePoints[0]),
-        Particle(cubePoints[1]),
-        Particle(cubePoints[2]),
-        Particle(cubePoints[3]),
-        Particle(cubePoints[4]),
-        Particle(cubePoints[5]),
-        Particle(cubePoints[6]),
-        Particle(cubePoints[7])
+        Particle(ORIGIN),
+        Particle(ORIGIN),
+        Particle(ORIGIN),
+        Particle(ORIGIN),
+        Particle(ORIGIN),
+        Particle(ORIGIN),
+        Particle(ORIGIN),
+        Particle(ORIGIN)
     };
 
 
@@ -101,6 +110,7 @@ int main(void)
     Particle* partHead = &(massParticle[0]);        //Note the mass as the starting head
     //Particle* partCurr = partHead;                  //Current node to head
     
+    //RIGID BODY WILL TAKE THE EXISTING MASS PARTICLES
     RigidBody rbCube(glm::vec3(20.f, -cos(glm::radians(45.f))*8, cos(glm::radians(45.f))*8), massParticle); //Origin of the cube. Doesn't need a model
 
     /*
@@ -112,7 +122,7 @@ int main(void)
     |/       |/
     1--------3
     */
-    //INITIALIZE MODELS AND POINT IT TO A PARTICLE FOR GETTING ITS POSITION LATER
+    //INITIALIZE MODELS AND POINT IT TO A PARTICLE FOR GETTING ITS TRANSFORM MATRIX LATER
     Model massAggregateModels[MAX_CUBE_POINTS] = {   //Eight cube points
         Model("3D/planet.obj", &(massParticle[0])),
         Model("3D/planet.obj", &(massParticle[1])),
@@ -368,7 +378,7 @@ int main(void)
 
     ShaderPackage packedShader;
 
-
+    //INITIALIZE THE PARTICLEWORLD
     ParticleWorld particleWorld(partHead, &rbCube);
     
     while (!glfwWindowShouldClose(window))  //Main loop for each frame
@@ -414,6 +424,8 @@ int main(void)
         }*/
         
 
+        /*CALL THE PARTICLE WORLD TO HANDLE PHYSICS
+        */
         while (frameTime > 0.f) {
             float deltaTime = fmin(frameTime, TIMESTEP);    //Doesn't exceed timesteps
             frameTime -= deltaTime;                         //Deduct with deltaTime for next loop
@@ -429,56 +441,13 @@ int main(void)
             //UPDATE MODELS
             //Use normal arrays. Linked list can be taxing
             for (int i = 0; i < MAX_CUBE_POINTS; i++) {
-                //massAggregateModels[i].translate();
-                massAggregateModels[i].setTransformMatrix();
+                massAggregateModels[i].setTransformMatrix();    //Get the rigidbody particles' transform matrix
             }
             for (int i = 0; i < MAX_PARTICLES; i++) {
                 if (bullets[i].particleLink->partType != INACTIVE) {
-                    /*bullets[i].translate();*/ 
                     bullets[i].setTransformMatrix();    //Get the bullet particle's transform matrix
                 }
             }
-
-
-
-            
-
-            
-            
-            /*//FIREWORK SPAWNER
-            if (coilParticle[0].partType == INACTIVE  && projectileType == FIREWORK) {     //If parent detonated and still hasn't reached final explosion chain
-                phase++;
-                coilParticle[0].initParticle(COIL, bullets[0].scale, currTime);
-                coilParticle[0].prepStage(detonationPos, phase);
-                //Spawn more using coilParticle[coilParticle[0].payload]
-            }*/
-            
-            /*
-            //Force updates
-            switch (projectileType) {
-            case BASIC_SPRING:
-                basicS1.linkOtherEnd(bulletParticle[0].partPos);               //Link the other end
-                registryGeneral.add(&(bulletParticle[1]), &basicS1);           //Calculate spring force
-                basicS1.linkOtherEnd(bulletParticle[1].partPos);               //Repeat for other end
-                registryGeneral.add(&(bulletParticle[0]), &basicS1);
-                break;
-            case ELASTIC_BUNGEE:
-                elasticS1.linkOtherEnd(bulletParticle[0].partPos);
-                registryGeneral.add(&(bulletParticle[1]), &elasticS1);
-                elasticS1.linkOtherEnd(bulletParticle[1].partPos);
-                registryGeneral.add(&(bulletParticle[0]), &elasticS1);
-                break;
-            case ANCHORED_SPRING:
-                registryGeneral.add(&(bulletParticle[1]), &anchorS1);
-                break;
-            case CENTRIPETAL_FORCE:
-                if (spaceBarPressed != 1) {
-                    registryGeneral.add(&(bulletParticle[1]), &centripetalGeneral);
-                }
-                break;
-            default:
-                std::cout << "NO SPRING SELECTED" << std::endl;
-            }*/
         }
 
 

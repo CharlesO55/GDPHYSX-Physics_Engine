@@ -155,6 +155,9 @@
     <ClCompile Include="controls.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Includes\graphics_engine.cpp" />
+    <ClCompile Include="Includes\particle_collisions.cpp" />
+    <ClCompile Include="Includes\particle_force_generators.cpp" />
+    <ClCompile Include="Includes\particle_world.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Includes\physics_engine.cpp" />
   </ItemGroup>
@@ -163,6 +166,9 @@
     <ClInclude Include="controls.h" />
     <ClInclude Include="Includes\graphics_engine.h" />
     <ClInclude Include="Includes\particle.h" />
+    <ClInclude Include="Includes\particle_collisions.h" />
+    <ClInclude Include="Includes\particle_force_generators.h" />
+    <ClInclude Include="Includes\particle_world.h" />
     <ClInclude Include="Includes\stb_image.h" />
     <ClInclude Include="Includes\tiny_obj_loader.h" />
     <ClInclude Include="Includes\physics_engine.h" />

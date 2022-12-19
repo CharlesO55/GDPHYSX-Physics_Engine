@@ -1,6 +1,14 @@
 #ifndef PARTICLE_FILE
 #define PARTICLE_FILE
 
+/*This header file contains most Particle initialization related items. 
+* Properties to alter are:
+*   PARTICLE_INIT_SETTINGS - Particle's initialized velocity and acceleration
+*   GRAVITY_SETTINGS - Particle's gravity toggling between ACTIVE and INACTIVE
+*   DRAG_SETTINGS - Particle's drag force toggle betweem ACTIVE and INACTIVE
+*/
+
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -35,12 +43,53 @@
 #define MAX_CUBE_POINTS 8
 
 #define DEFAULT_SCALE 10.f
-//#define MAX_SPRINGS 2
+
+#define TOTAL_PARTICLE_TYPES 8
 
 static glm::vec3 ORIGIN = glm::vec3(0.f, 0.f, 0.f);
 
 
+//THE PARTICLE TYPES' VELOCITY AND ACCELERATION
+static glm::vec3 PARTICLE_INIT_SETTINGS[TOTAL_PARTICLE_TYPES][2] = {
+            //VELOCITY                 //ACCELERATION
+    { glm::vec3(0.f, 0.f, 0.f),     glm::vec3(0.f, 0.f, 0.f) }, //STATIONARY
 
+    { glm::vec3(5.f, 0.f, 0.f),     glm::vec3(0.f, 9.f, 0.f) }, //BULLET
+    { glm::vec3(10.f, 20.f, 0.f),   glm::vec3(5.f, 3.f, 0.f) }, //ARTILLERY
+    { glm::vec3(4.f, 0.f, 0.f),     glm::vec3(2.f, 10.f, 0.f)}, //FIREBALL
+    { glm::vec3(10.f, 0.f, 0.f),    glm::vec3(0.f, 0.f, 0.f) }, //LASER
+
+    { glm::vec3(0.f, 0.1f, 0.f),    glm::vec3(-10.f, 5.f, 0.f) }, //BASIC SPRING
+    { glm::vec3(0.1f, 0.f, 0.f),    glm::vec3(100.f, 0.f, 0.f) }, //ANCHORED SPRING
+    { glm::vec3(0.1f, 0.f, 0.f),    glm::vec3(100.f, 0.f, 0.f) }  //BUNGEE SPRING
+};
+
+//THE PARTICLE TYPES' GRAVITY TOGGLE
+static int GRAVITY_SETTINGS[TOTAL_PARTICLE_TYPES] = {
+    INACTIVE,   //STATIONARY
+    ACTIVE,     //BULLET
+    ACTIVE,     //ARTILLERY
+    INACTIVE,   //FIREBALL
+    INACTIVE,   //LASER
+    INACTIVE,   //BASIC SPRING
+    ACTIVE,     //ANCHORED SPRING
+    INACTIVE    //BUNGEE
+};
+
+//THE PARTICLE TYPES' DRAG FORCE TOGGLE
+static int DRAG_SETTINGS[TOTAL_PARTICLE_TYPES] = {
+    ACTIVE,     //STATIONARY
+    ACTIVE,     //BULLET
+    ACTIVE,     //ARTILLERY
+    INACTIVE,   //FIREBALL
+    INACTIVE,   //LASER
+    ACTIVE,     //BASIC SPRING
+    ACTIVE,     //ANCHORED SPRING
+    ACTIVE      //BUNGEE
+};
+
+
+/*
 static float cubeSideHalfLength = 5.f;
 static glm::vec3 cubeOrigin = glm::vec3(10.f, 0.f, 0.f) + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, cubeSideHalfLength);
 
@@ -55,37 +104,7 @@ static glm::vec3 cubePoints[MAX_CUBE_POINTS] = {
     glm::vec3(cubeOrigin + glm::vec3(cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //5 Bot Left
     glm::vec3(cubeOrigin + glm::vec3(-cubeSideHalfLength, cubeSideHalfLength, 0.f + cubeSideHalfLength)),    //6 Top Right
     glm::vec3(cubeOrigin + glm::vec3(-cubeSideHalfLength, -cubeSideHalfLength, 0.f + cubeSideHalfLength))   //7 Bot Right
-};
-
-/*
-//Preset values for damp, v, a
-                            //BASIC//ANCHORED//BUNGEE
-static float dampSettings[] = { 0.99f , 0.99f, 0.9f, 0.99f };   //Replaced by DragForce
-
-
-static int gravitySettings[] = { INACTIVE , ACTIVE, INACTIVE, INACTIVE };   //Activate gravity for springs
-static int constantForceSettings[] = { ACTIVE , ACTIVE, ACTIVE, ACTIVE };   //Allow user to apply force per click
-static int dragForceSettings[] = { ACTIVE , ACTIVE, ACTIVE, INACTIVE };       //Activate drag for all springs   
-
-
-
-
-static glm::vec3 velocitySettings[] = {
-    //IMPORTANT BUG: Model will occasionally not render if no velocity is present. Put at least a miniscule v. Something wrong with Model::translate()
-    glm::vec3(0.f, 0.1f, 0.f),  //1 Basic Spring
-    glm::vec3(0.1f, 0.f, 0.f),  //2 Anchored Spring 
-    glm::vec3(0.1f, 0.f, 0.f),  //3 Elastic Bungee
-    glm::vec3(2.f, 0.f, 0.f), //4 Centripetal Force
-};
-static glm::vec3 accelerationSettings[] = { //Constant force. Partnered with ACTIVE/INACTIVE constantForceSettings[]
-    glm::vec3(-10.f, 5.f, 0.f),     //1 BASIC: Glide right
-    glm::vec3(100.f, 0.f, 0.f),     //2 ANCHORED: Move left
-    glm::vec3(100.f, 0.f, 0.f),     //3 ELASTIC: Move left
-    glm::vec3(0.f, 100.f, 0.f),       //4
-};
-*/
-
-
+};*/
 
 /*
 //Firework rule values
