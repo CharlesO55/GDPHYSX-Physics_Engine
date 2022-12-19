@@ -1,8 +1,20 @@
 #include "physics_engine.h"
 #include <iostream>
 
+/*PARTICLES & RIGID BODIES
+* Contains particle and rigid body values and methods
+*   partType:                   Particle's type. Will not render/calculate if INACTIVE
+*   despawnTime:                Reamining lifetime. Will despawn if reaches 0.
+*   Force toggles:              isGravityActive, isConstantForceActive, isDragForceActive
+*   Matrix generation:          calculateDerivedData(), calcTransMatrix(), calcRotateMatrix()
+*   Particle initialization:    initParticle(), connectNextParticle()
+*   Physics update:             updateMotion(), clearForceAccum(), addForceAccum(), clearTorqueAccum(), addTorqueAccum()
+*/
+
+
 
 //PARTICLE
+//DEFAULT CONSTRUCTOR
 Particle::Particle() {
     scale = DEFAULT_SCALE;     //Default To scale by
     mass = 1.f;
@@ -20,6 +32,7 @@ Particle::Particle() {
     partNext = NULL;
     orientation = { 0.f, 0.f, 0.f };
 }
+//CONSTRUCTOR WITH POSITION FOR STATIONARY PARTICLES
 Particle::Particle(glm::vec3 startPos) {
     scale = DEFAULT_SCALE;
     radius = 1.f;
@@ -32,106 +45,7 @@ Particle::Particle(glm::vec3 startPos) {
     initParticle(STATIONARY, startPos);
 }
 
-RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
-    //The origin particle's basic properties
-    scale = DEFAULT_SCALE;
-    mass = 1.f;
-    radius = 1.f;
-    despawnTime = 0.f; //despawnTime is its lifespan
-    forceAccum = { 0.f, 0.f, 0.f };
-    partAcc = { 0.f, 0.f, 0.f };
-    partNext = NULL;
-
-    torque = { 0.f, 0.f, 0.f };
-    torqueAccum = { 0.f, 0.f, 0.f };
-    angularVel = { 0.f, 0.f, 0.f };
-    orientation = { 0.f, 0.f, 0.f };
-
-    initParticle(STATIONARY, originPos);
-
-    //Connect the particles with the rigid body
-    int i;
-    for (i = 0; i < MAX_CUBE_POINTS; i++) {
-        cubeParticles[i] = &massParticle[i];
-    }
-    calcRbParticles();
-}
-
-    //RESETS TORQUE
-    void RigidBody::clearTorqueAccum() {
-        torqueAccum = { 0.f, 0.f, 0.f };
-    }
-
-    //ADD TO TORQUE ACCUMULATED
-    void RigidBody::addTorqueAccum(const glm::vec3 newTorque) {
-        torqueAccum += newTorque;
-    }
-
-    //CALCULATE LINEAR AND ROTATIONAL CHANGES
-    void RigidBody::updateMotion(const float deltaTime) {
-        //despawnParticle(deltaTime);     //Rigid body shouldn't despawn
-        if (!partType || !mass) {
-            return;     //End when particle isn't active or is unmovable
-        }
-
-        
-        //LINEAR MOTION
-        partAcc = (1 / mass) * forceAccum;      //Calculate acc from total forces
-        partVel += partAcc * deltaTime;         //Add to velocity
-        //partVel *= 0.99f;      //Replacd by dragForce
-        partPos += partVel * deltaTime * scale;  //Update position
-        
-
-        //ROTATIONAL MOTION
-        angularVel += (1 / mass) * torqueAccum * deltaTime;
-        //angularVel *= 0.95f;  //Replaced with drag torque
-        orientation += angularVel * deltaTime * scale;
-    }
-
-
-
-    //Calculates the particles position with respect to RigidBody's origin position and orientation
-    void RigidBody::calcRbParticles() { 
-        
-        //CREATE THE LOCAL SPACE MATRIX
-        for (int i = 0; i < 8; i++) {
-            cubeParticles[i]->partPos = this->partPos;          //Particle set to local origin
-            cubeParticles[i]->orientation = this->orientation;  //Particle copy the rigidbody's orientation
-            cubeParticles[i]->calculateDerivedData();           //Sets the transform matrix from the calculated transMatrix and rotateMatrix
-        }
-
-        
-        //TRANSLATE TO NEW POSITION RESPECTIVE OF THE LOCAL SPACE
-        float distance = cos(glm::radians(45.f)) * fLength;     //Apply distance 
-        cubeParticles[0]->partPos = glm::vec3(-distance, distance, -distance);
-        cubeParticles[1]->partPos = glm::vec3(distance, -distance, -distance);
-        cubeParticles[2]->partPos = glm::vec3(distance, distance, -distance);
-        cubeParticles[3]->partPos = glm::vec3(-distance, -distance, -distance);
-        cubeParticles[4]->partPos = glm::vec3(distance, distance, distance);
-        cubeParticles[5]->partPos = glm::vec3(distance, -distance, distance);
-        cubeParticles[6]->partPos = glm::vec3(-distance, distance, distance);
-        cubeParticles[7]->partPos = glm::vec3(-distance, -distance, distance);
-
-
-        for (int i = 0; i < 8; i++) {
-            cubeParticles[i]->calcTranslateMatrix();    //Generate a new transMatrix
-            cubeParticles[i]->transformMatrix *= cubeParticles[i]->transMatrix; //Apply it to the existing local transform matrix
-        }
-    }
-
-    //Gets the inertia tensor based on cuboid formula
-    void RigidBody::calcInertiaTensor(const glm::vec3 point) {
-        float cubeLength = cos(glm::radians(45.f)) * fLength;
-        float cuboidTensor = (1.f / 12.f) * this->mass;
-        inertiaTensor = {
-            {cuboidTensor * (point.y * point.y + point.z * point.z), 0.f, 0.f},
-            {0.f, cuboidTensor * (point.x * point.x + point.z * point.z), 0.f},
-            {0.f, 0.f, cuboidTensor * (point.x * point.x + point.y * point.y)}
-        };
-    }
-
-
-
+    //CONNECTS PARTICLES FOR LINKED LIST USES
     void Particle::connectNextParticle(Particle* pNextParticle) {
         this->partNext = pNextParticle;
     }
@@ -204,8 +118,6 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
             isGravityActive = GRAVITY_SETTINGS[7]; //INACTIVE;
             isDragForceActive = DRAG_SETTINGS[7];  //ACTIVE;
             break;
-
-
         default:
             std::cout << "INITIALIZED NOT IN SCOPE" << std::endl;
         }
@@ -223,7 +135,7 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
         }
     }
 
-    //Update position
+    //UPDATE PARTICLE POSITION
     void Particle::updateMotion(float deltaTime) {    //Update particle's motion
         despawnParticle(deltaTime);     //Attempt to despawn particle and update its lifetime
         if (!partType || !mass) {
@@ -237,19 +149,20 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
         //partVel *= damp;      //Replaced by DragForce
         partPos += partVel * deltaTime * scale;  //Update position
 
-        //clearForceAccum();  //Clear total forces for next loop
+        //clearForceAccum();  //Clear total forces for next loop. CLEARED IN STARTFRAME
     }
 
-    //Adds force
+    //ADDS FORCES
     void Particle::addForceAccum(glm::vec3 newForce) {
         forceAccum += newForce;
     }
-    //Reset forces accumulated
+    //RESET FORCES ACCUMULATED
     void Particle::clearForceAccum() {
         forceAccum = { 0.f, 0.f, 0.f };
     }
 
-    //Calculate the transform matrix
+
+    //CALC THE TRANSFORM MATRIX
     void Particle::calculateDerivedData() {
         transformMatrix = glm::mat3(1.0f);  //Reset the transform matrix every run
         
@@ -260,21 +173,118 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
         return;
     }
 
-    void Particle::calcTranslateMatrix() {
-        glm::mat4 identity = glm::mat3(1.0f);
-        transMatrix = glm::translate(identity, partPos);    //Matrix with particle position
+        //GENERATES A TRANSLATE MATRIX FOR POSITION TRANSLATION
+        void Particle::calcTranslateMatrix() {
+            glm::mat4 identity = glm::mat3(1.0f);
+            transMatrix = glm::translate(identity, partPos);    //Matrix with particle position
+        }
+
+        //GENERATES A ROTATION MATRIX
+        void Particle::calcRotateMatrix() {
+            glm::mat4 identity = glm::mat3(1.0f);
+            //Rotate by each axis
+            rotMatrix = glm::rotate(identity,
+                glm::radians(orientation.x),
+                glm::vec3(1, 0, 0));
+            rotMatrix = glm::rotate(rotMatrix,
+                glm::radians(orientation.y),
+                glm::vec3(0, 1, 0));
+            rotMatrix = glm::rotate(rotMatrix,
+                glm::radians(orientation.z),
+                glm::vec3(0, 0, 1));
+        }
+
+
+
+//RIGID BODY CONSTRUCTOR
+RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
+    //The origin particle's basic properties
+    scale = DEFAULT_SCALE;
+    mass = 1.f;
+    radius = 1.f;
+    despawnTime = 0.f; //despawnTime is its lifespan
+    forceAccum = { 0.f, 0.f, 0.f };
+    partAcc = { 0.f, 0.f, 0.f };
+    partNext = NULL;
+
+    torque = { 0.f, 0.f, 0.f };
+    torqueAccum = { 0.f, 0.f, 0.f };
+    angularVel = { 0.f, 0.f, 0.f };
+    orientation = { 0.f, 0.f, 0.f };
+
+    initParticle(STATIONARY, originPos);
+
+    //Connect the particles with the rigid body
+    int i;
+    for (i = 0; i < MAX_CUBE_POINTS; i++) {
+        cubeParticles[i] = &massParticle[i];
+    }
+    calcRbParticles();
+}
+
+    //RESETS TORQUE
+    void RigidBody::clearTorqueAccum() {
+        torqueAccum = { 0.f, 0.f, 0.f };
     }
 
-    void Particle::calcRotateMatrix() {
-        glm::mat4 identity = glm::mat3(1.0f);
+    //ADD TO TORQUE ACCUMULATED
+    void RigidBody::addTorqueAccum(const glm::vec3 newTorque) {
+        torqueAccum += newTorque;
+    }
 
-        rotMatrix = glm::rotate(identity,
-            glm::radians(orientation.x),
-            glm::vec3(1, 0, 0));
-        rotMatrix = glm::rotate(rotMatrix,
-            glm::radians(orientation.y),
-            glm::vec3(0, 1, 0));
-        rotMatrix = glm::rotate(rotMatrix,
-            glm::radians(orientation.z),
-            glm::vec3(0, 0, 1));
+    //CALCULATE LINEAR AND ROTATIONAL CHANGES
+    void RigidBody::updateMotion(const float deltaTime) {
+        //despawnParticle(deltaTime);     //Rigid body shouldn't despawn
+        if (!partType || !mass) {
+            return;     //End when particle isn't active or is unmovable
+        }
+
+        //LINEAR MOTION
+        partAcc = (1 / mass) * forceAccum;      //Calculate acc from total forces
+        partVel += partAcc * deltaTime;         //Add to velocity
+        //partVel *= 0.99f;      //Replacd by dragForce
+        partPos += partVel * deltaTime * scale;  //Update position
+
+        //ROTATIONAL MOTION
+        angularVel += (1 / mass) * torqueAccum * deltaTime;
+        //angularVel *= 0.95f;  //Replaced with drag torque
+        orientation += angularVel * deltaTime * scale;
+    }
+
+    //Calculates the particles position with respect to RigidBody's origin position and orientation
+    void RigidBody::calcRbParticles() {
+
+        //CREATE THE LOCAL SPACE MATRIX
+        for (int i = 0; i < 8; i++) {
+            cubeParticles[i]->partPos = this->partPos;          //Particle set to local origin
+            cubeParticles[i]->orientation = this->orientation;  //Particle copy the rigidbody's orientation
+            cubeParticles[i]->calculateDerivedData();           //Sets the transform matrix from the calculated transMatrix and rotateMatrix
+        }
+
+        //TRANSLATE TO NEW POSITION RESPECTIVE OF THE LOCAL SPACE
+        float distance = cos(glm::radians(45.f)) * fLength;     //Apply distance 
+        cubeParticles[0]->partPos = glm::vec3(-distance, distance, -distance);
+        cubeParticles[1]->partPos = glm::vec3(distance, -distance, -distance);
+        cubeParticles[2]->partPos = glm::vec3(distance, distance, -distance);
+        cubeParticles[3]->partPos = glm::vec3(-distance, -distance, -distance);
+        cubeParticles[4]->partPos = glm::vec3(distance, distance, distance);
+        cubeParticles[5]->partPos = glm::vec3(distance, -distance, distance);
+        cubeParticles[6]->partPos = glm::vec3(-distance, distance, distance);
+        cubeParticles[7]->partPos = glm::vec3(-distance, -distance, distance);
+
+        for (int i = 0; i < 8; i++) {
+            cubeParticles[i]->calcTranslateMatrix();    //Generate a new transMatrix
+            cubeParticles[i]->transformMatrix *= cubeParticles[i]->transMatrix; //Apply it to the existing local transform matrix
+        }
+    }
+
+    //Gets the inertia tensor based on cuboid formula
+    void RigidBody::calcInertiaTensor(const glm::vec3 point) {
+        float cubeLength = cos(glm::radians(45.f)) * fLength;
+        float cuboidTensor = (1.f / 12.f) * this->mass;
+        inertiaTensor = {
+            {cuboidTensor * (point.y * point.y + point.z * point.z), 0.f, 0.f},
+            {0.f, cuboidTensor * (point.x * point.x + point.z * point.z), 0.f},
+            {0.f, 0.f, cuboidTensor * (point.x * point.x + point.y * point.y)}
+        };
     }

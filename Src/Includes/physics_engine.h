@@ -3,15 +3,23 @@
 
 #include "particle.h"
 
-
+/*PARTICLES & RIGID BODIES
+* Contains particle and rigid body values and methods
+*   partType:                   Particle's type. Will not render/calculate if INACTIVE
+*   despawnTime:                Reamining lifetime. Will despawn if reaches 0.
+*   Force toggles:              isGravityActive, isConstantForceActive, isDragForceActive
+*   Matrix generation:          calculateDerivedData(), calcTransMatrix(), calcRotateMatrix()
+*   Particle initialization:    initParticle(), connectNextParticle()
+*   Physics update:             updateMotion(), clearForceAccum(), addForceAccum(), clearTorqueAccum(), addTorqueAccum()
+*/
 
 class Particle {
 public:
     //Model modelParticle       //Ideally, possess a model for rendering but can't bring in due to header clashes with libs in main.cpp
     float scale;     //To scale by
-    //float damp;    //Damping value
+    //float damp;    //Damping value. Replaced with dragForce
     float mass;
-    float radius;
+    float radius;   //Size of the particle
     int partType;                //Type of the particle
     int isGravityActive;           //Gravity toggle
     int isConstantForceActive;     //Constant force toggle
@@ -24,8 +32,7 @@ public:
     glm::vec3 forceAccum; //Active forces
     Particle* partNext;     //Next particle in a linked list (if any)
 
-    glm::mat4 transformMatrix;  //Will be used/copied by the model class
-    glm::vec3 orientation;
+
 
     Particle();
     Particle(glm::vec3 startPos);
@@ -43,10 +50,13 @@ public:
     //Reset forces accumulated
     void clearForceAccum();
 
-    //Calculate the transform matrix. Not rigidbody exclusive since model class will also the transform matrix.
+    glm::mat4 transformMatrix;  //Will be used/copied by the model class
+    glm::vec3 orientation;      //Empty for particles but filled for rigidBodies
+
+    //Calculate the transform matrix. Not rigidbody exclusive since model class will also use the transform matrix.
     void calculateDerivedData();
-    void calcTranslateMatrix();
-    void calcRotateMatrix();
+        void calcTranslateMatrix();
+        void calcRotateMatrix();
     glm::mat4 rotMatrix;
     glm::mat4 transMatrix;
 };
@@ -63,8 +73,8 @@ public:
         glm::mat3 inertiaTensor;
         glm::vec3 angularVel;   //Angular velocity
 
-        glm::vec3 torque;
-        glm::vec3 torqueAccum;
+        glm::vec3 torque;       //Rotational force
+        glm::vec3 torqueAccum;  //Total torque
 
         RigidBody(glm::vec3 originPos, Particle massParticle[8]);   //Constructor
 
@@ -75,44 +85,3 @@ public:
         void calcInertiaTensor(const glm::vec3 point);   //Gets the intertiaTensor from a contact point's pos
         //Useful other functions from particle class: calculateDerivedData, calcTranslateMatrix, calcRotateMatrix
     };
-
-
-
-
-    /*
-//Handles contacts
-class ParticleContact {
-public:
-    Particle* part[2];          //2 Particles
-    float k, elasticity;      //Adjust bounciness (<1 inelastic, >1 elastic)
-    glm::vec3 contactNormal;    //Direction
-    float deltaTime;
-    RigidBody* rbCube;
-
-    ParticleContact();
-    int checkCollision();
-
-    void resolve(Particle* part0, Particle* part1, RigidBody* rbCube);
-    void resolveVelocity();
-
-    float penetrationDepth;
-    void resolveInterpenetration();
-};
-
-//Links particles with contact
-class ParticleLinker {
-public:
-    ParticleLinker();
-    Particle* part[2];
-    float currLength, lengthLimit;
-    glm::vec3 contactNormal;
-    virtual unsigned fillContact(ParticleContact *contact);
-};
-
-    /*Rod contact
-    class Rod : public ParticleLinker {
-    public:
-        Rod();
-        Rod(Particle* part0, Particle* part1);
-        unsigned fillContact(ParticleContact* contact);
-    };*/

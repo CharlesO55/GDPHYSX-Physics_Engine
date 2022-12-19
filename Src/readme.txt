@@ -7,17 +7,35 @@ I. CONTROLS:
 	Space - Resets cube position (excluding velocity)
 
 
+II. DOCUMENTATION
+A. Graphics
+	- graphics_engine.cpp/h
+	- config.h
+
+B. Physics
+   Particle/Rigidbody classes	- physics_engine.cpp/h
+   Particle values to alter	- particle.h   
+   Force Generators		- particle_force_generators.cpp/h
+   Collisions			- particle_collisions.cpp/h
+   Physics Logic		- particle_world.cpp/h
+
+C. Controls
+	-controls.cpp/h
+
+D. Additional libraries
+	- tiny_obj_loader.h
+	- stb_image.h
 
 
-
-II. HOW TO RENDER STUFF:
-
+III. HOW TO RENDER STUFF:
 Follow the order
-1. Create a model with constructor: Model NAME(ADDRESS OF OBJ FILE, STARTING POS)
+...
+0. Create a particle.
+1. Create a model with constructor: Model NAME(ADDRESS OF OBJ FILE, ADDRESS OF PARTICLE)
 2. Load textures with loadTextures(PNG IMAGE ADDRESS, TEX NUMBER)	
 													//0 - Base color/Albedo		//1 - Normal map		//2 - Overlay texture
 3. Generate the VAO with generateVAO()
-4. Translate the object with translate(MODEL POSITION)
+4. Copy the linked particle's transformMatrix with setTransformMatrix()
 										//NEVER pass in a glm::vec3(0.f, 0.f, 0.f). It will not render
 5.a Pack all the Camera, Lights, etc. into packedShader.packedClasses(......) 
 	//If using the same light and camera, no need to repack packedClasses
