@@ -43,7 +43,7 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
 
     torque = { 0.f, 0.f, 0.f };
     torqueAccum = { 0.f, 0.f, 0.f };
-    angularVel = 0.f;
+    angularVel = { 0.f, 0.f, 0.f };
     orientation = { 0.f, 0.f, 0.f };
 
     initParticle(STATIONARY, originPos);
@@ -56,12 +56,16 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
     calcRbParticles();
 }
 
+    
     void RigidBody::clearTorqueAccum() {
         torqueAccum = { 0.f, 0.f, 0.f };
     }
 
+    void RigidBody::addTorqueAccum(const glm::vec3 newTorque) {
+        torqueAccum += newTorque;
+    }
 
-    void RigidBody::updateMotion(float deltaTime) {
+    void RigidBody::updateMotion(const float deltaTime) {
         despawnParticle(deltaTime);     //Attempt to despawn particle and update its lifetime
         if (!partType || !mass) {
             return;     //End when particle isn't active or is unmovable
@@ -74,11 +78,23 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
         //partVel *= 0.99f;      //Replacd by dragForce
         partPos += partVel * deltaTime * scale;  //Update position
         
+        
+        /*
+        float k1 = 0.9f, k2 = 0.1f;
+        if (this->isDragForceActive && this->angularVel != glm::vec3(0.f, 0.f, 0.f)) {
+            float drag = glm::length(this->angularVel);    //Magnitude of current particle velocity
+            drag = (k1 * drag) + (k2 * drag * drag);    //Drag using constants
 
+            glm::vec3 norm = glm::normalize(this->angularVel); //Normalized velocity for a direction
+
+            torqueAccum = (norm * -drag);               //Add drag * opposite dir into total force
+        }*/
+
+        //torqueAccum += 1;
         //ROTATIONAL MOTION
-        //angularVel += torqueAccum * deltaTime;
-        angularVel *= 0.95f;
-        orientation += glm::vec3(0.f, angularVel * deltaTime * scale, 0.f);
+        angularVel += (1 / mass) * torqueAccum * deltaTime;
+        //angularVel *= 0.95f;
+        orientation += angularVel * deltaTime * scale;
     }
 
 
@@ -114,7 +130,15 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
         }
     }
 
-
+    void RigidBody::calcInertiaTensor(const glm::vec3 point) {
+        float cubeLength = cos(glm::radians(45.f)) * fLength;
+        float cuboidTensor = (1.f / 12.f) * this->mass;
+        inertiaTensor = {
+            {cuboidTensor * (point.y * point.y + point.z * point.z), 0.f, 0.f},
+            {0.f, cuboidTensor * (point.x * point.x + point.z * point.z), 0.f},
+            {0.f, 0.f, cuboidTensor * (point.x * point.x + point.y * point.y)}
+        };
+    }
 
 
 
@@ -237,7 +261,7 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
 
     //Calculate the transform matrix
     void Particle::calculateDerivedData() {
-        transformMatrix = glm::mat3(1.0f);
+        transformMatrix = glm::mat3(1.0f);  //Reset the transform matrix every run
         
         calcTranslateMatrix();
         calcRotateMatrix();
@@ -266,7 +290,7 @@ RigidBody::RigidBody(glm::vec3 originPos, Particle massParticle[8]) {
     }
 
 
-    
+   
 
 //FORCE GENERATORS
 ParticleForceGenerator::ParticleForceGenerator() {
@@ -303,8 +327,6 @@ ParticleForceGenerator::ParticleForceGenerator() {
                     part->addForceAccum(norm * -drag);               //Add drag * opposite dir into total force
                 }
             }
-        
-
 
 
         //BASIC SPRING FORCE
@@ -394,7 +416,25 @@ ParticleForceGenerator::ParticleForceGenerator() {
                     //oppositeEnd->forceAccum += force;    //Pull the opposite end towards moving particle
                 }
             }
-        
+
+
+        //TORQUE GENERATORS
+        void ParticleTorqueGenerator::updateForce(RigidBody* rbCube) {
+            std::cout << "NO TORQUE GENERATED\n";
+        }
+            DragTorque::DragTorque(const float constant1, const float constant2) {
+                this->k1 = constant1;
+                this->k2 = constant2;
+            }
+                void DragTorque::updateForce(RigidBody* rbCube) {
+                    if (rbCube->isDragForceActive && rbCube->angularVel != glm::vec3(0.f, 0.f, 0.f)) {
+                        float drag = glm::length(rbCube->angularVel);    //Magnitude of current particle velocity
+                        drag = (k1 * drag) + (k2 * drag * drag);          //Drag using constants
+
+                        glm::vec3 norm = glm::normalize(rbCube->angularVel); //Normalized velocity for a direction
+                        rbCube->addTorqueAccum(norm * -drag);                //Add drag * opposite dir into total force          
+                    }
+                }
         
 
 
@@ -442,7 +482,7 @@ ParticleContact::ParticleContact() {
         void ParticleContact::resolveVelocity() {
             //Check if they're already separating
             
-            float sepVel = glm::dot((rbCube->partVel/*part[0]->partVel*/ - part[1]->partVel), contactNormal) - rbCube->fLength;
+            float sepVel = glm::dot((rbCube->partVel/*part[0]->partVel*/ - part[1]->partVel), contactNormal) - rbCube->fLength * 2;
             if (sepVel > 0) {
                 return;
             }
@@ -627,7 +667,7 @@ ParticleWorld::ParticleWorld(Particle* partHead, RigidBody* rbCube) {
 
         //RESET POSITION OF CUBE PARTICLES
         if (*isSpaceBarPressed) {
-            rbCube->partPos = glm::vec3(20.f, -cos(glm::radians(45.f)) * 8, cos(glm::radians(45.f)) * 8);
+            rbCube->partPos = glm::vec3(10.f, 20.f, 0.f);// -cos(glm::radians(45.f)) * 8, cos(glm::radians(45.f)) * 8);
             rbCube->orientation = { 0.f, 0.f, 0.f };
             /*Particle* currPart = massParticlesHead;
             int i = 0;
@@ -663,6 +703,7 @@ ParticleWorld::ParticleWorld(Particle* partHead, RigidBody* rbCube) {
         
         //CALCULATE THE RIGIDBODY PARTICLES
         accumAllForces(rbCube);
+        accumAllTorque(rbCube);
         rbCube->updateMotion(deltaTime);
         rbCube->calcRbParticles();
 
@@ -670,11 +711,17 @@ ParticleWorld::ParticleWorld(Particle* partHead, RigidBody* rbCube) {
         free(currPart);
     }
 
+
         //ACCUMULATES ALL FORCES
         void ParticleWorld::accumAllForces(Particle* selectedPart) {
             registryGeneral.add(selectedPart, &dragGeneral);
             registryGeneral.add(selectedPart, &gravityGeneral);
             registryGeneral.add(selectedPart, &constantGeneral);
+        }
+
+        //ACCUMULATES ALL TORQUE
+        void ParticleWorld::accumAllTorque(RigidBody* rbCube) {
+            dragTorque.updateForce(rbCube);
         }
 
         //CALLS THE INTERPENETRATION AND COLLISION RESOLUTION

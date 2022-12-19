@@ -54,11 +54,13 @@ public:
 
     class RigidBody : public Particle {
     public:
-        float fLength = 8.f;        //Distance/size of the cube
-        Particle* cubeParticles[8]; //8 particles to serve as contact points. Only collision with particle is registered.
+        //Particle properties from before...
 
-        glm::mat3 intertiaTensor;
-        float angularVel;   //Angular vel. Scalar value of speed of rotation
+        float fLength = 8.f;        //Distance/size of the cube
+        Particle* cubeParticles[8]; //8 particles to serve as contact points.
+
+        glm::mat3 inertiaTensor;
+        glm::vec3 angularVel;   //Angular velocity
 
         glm::vec3 torque;
         glm::vec3 torqueAccum;
@@ -66,8 +68,10 @@ public:
         RigidBody(glm::vec3 originPos, Particle massParticle[8]);   //Constructor
 
         void clearTorqueAccum();
-        void updateMotion(float deltaTime); //Calc additional rotation stuff
-        void calcRbParticles();     //Makes sure the particles retain the cube position
+        void addTorqueAccum(const glm::vec3 torqueForce);
+        void updateMotion(const float deltaTime);     //Overwritten version with additional rotation calculations
+        void calcRbParticles();                          //Makes sure the particles retain the cube position
+        void calcInertiaTensor(const glm::vec3 point);   //Gets the intertiaTensor from a contact point's pos
         //Useful other functions from particle class: calculateDerivedData, calcTranslateMatrix, calcRotateMatrix
     };
 
@@ -106,6 +110,17 @@ public:
         void updateForce(Particle* part);
     };
 
+class ParticleTorqueGenerator {
+    virtual void updateForce(RigidBody* rbCube);
+};
+    //ROTATIONAL DRAG
+    class DragTorque : public ParticleTorqueGenerator {
+    public:
+        float k1, k2;
+
+        DragTorque(const float constant1, const float constant2);
+        void updateForce(RigidBody* rbCube);
+    };
 
 
     //BASIC SPRING - 2 Ends should move
@@ -221,7 +236,8 @@ public:
     GravityForce gravityGeneral;
     ConstantForce constantGeneral;
     DragForce dragGeneral = DragForce(0.9f, 0.1f);   //Drag forces calculator ~ Higher constants = More drag
-    //CentripetalForce centripetalGeneral = CentripetalForce(ORIGIN);
+    DragTorque dragTorque = DragTorque(0.9f, 0.1f);  //Drag torque for rigid body
+    //CentripetalForce centripetalGeneral = CentripetalForce(ORIGIN);   //Old custom physics property submission
 
     //CONTACTS
     ParticleContact contactGeneral;     //For any mass/bullet
@@ -239,5 +255,6 @@ public:
     void checkInput(int* isFired, int projectileType, int* isSpaceBarPressed);  //Handles spawning and control inputs
     void runPhysics(float deltaTime);                   //Physics updates
         void accumAllForces(Particle* selectedPart);    //Adds forces and sends to force registry
+        void accumAllTorque(RigidBody* rbCube);         //Adds torque with force registry
         void resolveContacts();                         //Resolves collision and interpenetration
 };
